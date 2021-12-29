@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+shopt -s extglob # globstar
+
+SIMENV_ROOT=$(readlink -e $0 | xargs dirname | xargs dirname)
+
+
+# Registering subcommands
+source $SIMENV_ROOT/lib/grep
+
+
+#
+# DO NOT REMOVE THIS LINE
+#
+source $SIMENV_ROOT/lib/exec_subcmd

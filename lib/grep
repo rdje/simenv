@@ -1,0 +1,221 @@
+#!bash
+
+# Function: grep [options] eregex
+#
+#   Positional arguments may be intermixed with options
+#
+function _grep
+{
+  function usage
+  {
+    cat <<USAGE | sed -r 's/grep|--?[[:alnum:]-]+|-x.|[][]/\\e[1m&\\e[0m/g
+                          s/(ext|file|dir)glob|eregex|subcmd|sub|options|parameters/\\e[4m&\\e[0m/g
+                          s/.*/echo -e "&"/e'
+
+usage: simenv grep [[options] eregex...] | subcmd [suboptions] [parameters]
+  
+  grep options:
+    
+    -x  extglob[,extglob]*
+    -xf fileglob[,fileglob]*
+    -xd dirglob[,dirglob]*
+    -color
+    -h
+    -n
+    -R
+    -i
+        Ignore case
+    -I  
+        Ignore binary files
+    -s
+        Suppress error messages about nonexistent or unreadable files.
+
+USAGE
+    
+    exit
+  }
+
+  function exclude_file
+  {
+    _xfid=$((_xfid+1))
+
+    local opt=$1
+    local value=$2
+
+    if [[ $value =~ ^[^,/]+(,[^,/]+)*$ ]]; then
+      for file in $(echo $value | sed 's/,/ /g')
+      do
+        echo "file<$file>"
+
+        fileglobs[$((fileglob_id))]=$file
+        ((fileglob_id++))
+      done
+    else
+      case $_xfid in
+        1) suffix=st;;
+        2) suffix=nd;;
+        3) suffix=rd;;
+        *) suffix=th;;
+      esac
+
+      echo -e "\e[1;31m-E-\e[0m Syntax error with value '\e[1m$value\e[0m' of $_xfid$suffix '\e[1m$opt\e[0m' option"
+      echo -e "\e[1m-I-\e[0m Probably due to the presence of '\e[1m/\e[0m's"
+      exit 2
+    fi
+  } # exclude_file
+
+  function exclude_dir
+  {
+    _xdid=$((_xdid+1))
+
+    local opt=$1
+    local value=$2
+
+    if [[ $value =~ ^[^,/]+(,[^,/]+)*$ ]]; then
+      for dir in $(echo $value | sed 's/,/ /g')
+      do
+        echo "dir<$dir>"
+
+        dirglobs[$((dirglob_id))]=$dir
+        ((dirglob_id++))
+      done
+    else
+      case $_xdid in
+        1) suffix=st;;
+        2) suffix=nd;;
+        3) suffix=rd;;
+        *) suffix=th;;
+      esac
+
+      echo -e "\e[1;31m-E-\e[0m Syntax error with value '\e[1m$value\e[0m' of $_xdid$suffix '\e[1m$opt\e[0m' option"
+      echo -e "\e[1m-I-\e[0m Probably due to the presence of '\e[1m/\e[0m's"
+      exit 2
+    fi
+  } # exclude_dir
+
+  # Display usage and quit if no argument
+  if (($# == 0)); then
+    usage
+  fi
+  
+  for v in "$@"
+  do
+   echo "initial: <$v>"
+  done
+
+  echo
+
+  # Collect the options and positional arguments
+  opts=$(getopt -n simenv -a -o ihnRIsx: -l xf:,xd:,color,--no-messages -- "$@")
+  if (($? && $? < 4)); then
+    usage
+  fi
+
+  eval set -- $opts
+  for a
+  do
+    echo "getopt: <$a>"
+  done
+
+  echo
+
+  while (($#))
+  do
+    case $1 in
+      -x)
+        for ext in $(echo $2 | sed 's/,/\n/g' | sed 's/^\.//')
+        do
+          echo "ext<$ext>"
+
+          extglobs[$((extglob_id))]=$ext
+          ((extglob_id++))
+        done
+
+        shift 2
+        ;;
+
+      --xf)
+        exclude_file $1 $2
+        shift 2
+        ;;
+
+      --xd)
+        exclude_dir $1 $2
+        shift 2
+        ;;
+
+      --color)
+        color=1;
+        shift;
+        ;;
+
+      -i)
+        ignore_case=1;
+        echo "ignore_case<1>"
+        shift;
+        ;;
+
+      -I)
+        ignore_binary=1;
+        echo "ignore_binary<1>"
+        shift;
+        ;;
+
+      -h)
+        no_filename=1;
+        echo "no_filename<1>"
+        shift;
+        ;;
+
+      -R)
+        symlink_recurse=1;
+        echo "symlink_recurse<1>"
+        shift;
+        ;;
+
+      -n)
+        linenum=1;
+        echo "linenum<1>"
+        shift;
+        ;;
+
+      -s)
+        no_messages=1;
+        echo "no_messages<1>"
+        shift;
+        ;;
+
+      --) end_of_options=1
+          echo "########## End Of Options ##########"
+          shift
+          ;;
+
+      -*) echo -e "\e[1;31m-E-\e[0m Unknown option '\e[1;31m$1\e[0m'"
+          usage
+          ;;
+
+      *) params[$((posid))]=$1
+         ((posid++))
+         echo "positional parameter: <$1>"
+         shift
+         ;;
+    esac
+  done
+
+  if [[ -z $sub ]]; then
+    eval grep ${color:+--color=always} \
+              ${ignore_case:+-i}       \
+              ${ignore_binary:+-I}     \
+              ${no_filename:+-h}       \
+              ${no_messages:+-s}       \
+              $(if ((symlink_recurse)); then echo -R; else echo -r; fi)         \
+              ${linenum:+-n}                                                    \
+              $(for p in "${params[@]}";    do echo "-e '$p'"; done)            \
+              $(for e in "${extglobs[@]}";  do echo "--exclude=*.'$e'"; done)   \
+              $(for f in "${fileglobs[@]}"; do echo "--exclude='$f'"; done)     \
+              $(for d in "${dirglobs[@]}";  do echo "--exclude-dir='$d'"; done) \
+              /usr
+  fi
+
+}
+

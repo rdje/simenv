@@ -1,0 +1,9 @@
+subcmd=$1
+shift
+
+
+if [[ $(type -t _$subcmd) == function ]]; then
+  _$subcmd "$@"
+else
+  echo -e "\e[1;31m-E-\e[0m Unknown command '\e[1m$subcmd\e[0m'"
+fi
