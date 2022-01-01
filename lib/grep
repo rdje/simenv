@@ -1,5 +1,7 @@
 #!bash
 
+_grep_dirlist=$SIMENV_ROOT/.simenv/grep/dirlist
+
 # Function: grep [options] eregex
 #
 #   Positional arguments may be intermixed with options
@@ -12,13 +14,19 @@ function _grep
                           s/(ext|file|dir)glob|eregex|subcmd|sub|options|parameters/\\e[4m&\\e[0m/g
                           s/.*/echo -e "&"/e'
 
-usage: simenv grep [[options] eregex...] | subcmd [suboptions] [parameters]
+usage: simenv grep [options] eregex... | subcmd [suboptions] [parameters]
   
   grep options:
     
     -x  extglob[,extglob]*
+        Ignore files ending with the comman separated list of extensions' glob patterns
+
     -xf fileglob[,fileglob]*
+        Ignore files matching the listed comma separated glob patterns
+
     -xd dirglob[,dirglob]*
+        Ignore directories matching the listed comma separated glob patterns
+
     -color
     -h
     -n
@@ -29,12 +37,13 @@ usage: simenv grep [[options] eregex...] | subcmd [suboptions] [parameters]
         Ignore binary files
     -s
         Suppress error messages about nonexistent or unreadable files.
-
 USAGE
     
     exit
   }
 
+  # Function: exclude_file
+  #
   function exclude_file
   {
     _xfid=$((_xfid+1))
@@ -45,7 +54,7 @@ USAGE
     if [[ $value =~ ^[^,/]+(,[^,/]+)*$ ]]; then
       for file in $(echo $value | sed 's/,/ /g')
       do
-        echo "file<$file>"
+        if [[ $debug ]]; then echo "file<$file>"; fi
 
         fileglobs[$((fileglob_id))]=$file
         ((fileglob_id++))
@@ -64,6 +73,9 @@ USAGE
     fi
   } # exclude_file
 
+
+  # Function: exclude_dir
+  #
   function exclude_dir
   {
     _xdid=$((_xdid+1))
@@ -74,7 +86,7 @@ USAGE
     if [[ $value =~ ^[^,/]+(,[^,/]+)*$ ]]; then
       for dir in $(echo $value | sed 's/,/ /g')
       do
-        echo "dir<$dir>"
+        if [[ $debug ]]; then echo "dir<$dir>"; fi
 
         dirglobs[$((dirglob_id))]=$dir
         ((dirglob_id++))
@@ -100,32 +112,36 @@ USAGE
   
   for v in "$@"
   do
-   echo "initial: <$v>"
+   if [[ $debug ]]; then echo "initial: <$v>"; fi
   done
 
-  echo
+  if [[ $debug ]]; then echo; fi
 
   # Collect the options and positional arguments
-  opts=$(getopt -n simenv -a -o ihnRIsx: -l xf:,xd:,color,--no-messages -- "$@")
+  opts=$(getopt -n simenv -a -o ihnRIsx: -l xf:,xd:,color,ad,add-directory: -- "$@")
   if (($? && $? < 4)); then
     usage
   fi
 
+
   eval set -- $opts
+
   for a
   do
-    echo "getopt: <$a>"
+    if [[ $debug ]]; then echo "getopt: <$a>"; fi
   done
 
-  echo
+  if [[ $debug ]]; then echo; fi
 
+  local k=0
   while (($#))
   do
+    if [[ $debug ]]; then echo -e "\e[31mk: $k  <$1>\e[0m"; fi
     case $1 in
       -x)
         for ext in $(echo $2 | sed 's/,/\n/g' | sed 's/^\.//')
         do
-          echo "ext<$ext>"
+          if [[ $debug ]]; then echo "ext<$ext>"; fi
 
           extglobs[$((extglob_id))]=$ext
           ((extglob_id++))
@@ -151,42 +167,50 @@ USAGE
 
       -i)
         ignore_case=1;
-        echo "ignore_case<1>"
+        if [[ $debug ]]; then echo "ignore_case<1>"; fi
         shift;
         ;;
 
       -I)
         ignore_binary=1;
-        echo "ignore_binary<1>"
+        if [[ $debug ]]; then echo "ignore_binary<1>"; fi
         shift;
         ;;
 
       -h)
         no_filename=1;
-        echo "no_filename<1>"
+        if [[ $debug ]]; then echo "no_filename<1>"; fi
         shift;
         ;;
 
       -R)
         symlink_recurse=1;
-        echo "symlink_recurse<1>"
+        if [[ $debug ]]; then echo "symlink_recurse<1>"; fi
         shift;
         ;;
 
       -n)
         linenum=1;
-        echo "linenum<1>"
+        if [[ $debug ]]; then echo "linenum<1>"; fi
         shift;
         ;;
 
       -s)
         no_messages=1;
-        echo "no_messages<1>"
+        if [[ $debug ]]; then echo "no_messages<1>"; fi
         shift;
         ;;
 
+      --ad|--add-directory)  
+        if ((k == 1)); then
+          shift
+          ${FUNCNAME}__add_directory "$1"
+          return
+        fi
+        ;;
+
       --) end_of_options=1
-          echo "########## End Of Options ##########"
+          if [[ $debug ]]; then echo "########## End Of Options ##########"; fi
           shift
           ;;
 
@@ -194,28 +218,116 @@ USAGE
           usage
           ;;
 
-      *) params[$((posid))]=$1
-         ((posid++))
-         echo "positional parameter: <$1>"
-         shift
-         ;;
+      *)  if ((k == 1)); then
+            if [[ $1 =~ ^add(-|_)dir(ectory)?$ ]]; then
+              shift
+              ${FUNCNAME}__add_directory "$@"
+              return
+            fi
+
+            if [[ $1 =~ ^list(-|_)dir(ectory)?$ ]]; then
+              shift
+              ${FUNCNAME}__list_directory "$@"
+              return
+            fi
+          fi
+
+          params[$((posid))]=$1
+          ((posid++))
+          if [[ $debug ]]; then echo "positional parameter: <$1>"; fi
+          shift
+          ;;
     esac
+
+    ((k++))
   done
 
-  if [[ -z $sub ]]; then
+  if (($(grep_has_empty_dirlist) == 0)); then
     eval grep ${color:+--color=always} \
               ${ignore_case:+-i}       \
               ${ignore_binary:+-I}     \
               ${no_filename:+-h}       \
               ${no_messages:+-s}       \
+              ${linenum:+-n}           \
               $(if ((symlink_recurse)); then echo -R; else echo -r; fi)         \
-              ${linenum:+-n}                                                    \
-              $(for p in "${params[@]}";    do echo "-e '$p'"; done)            \
               $(for e in "${extglobs[@]}";  do echo "--exclude=*.'$e'"; done)   \
               $(for f in "${fileglobs[@]}"; do echo "--exclude='$f'"; done)     \
               $(for d in "${dirglobs[@]}";  do echo "--exclude-dir='$d'"; done) \
-              /usr
+              $(for p in "${params[@]}";    do echo "-e '$p'"; done)            \
+              $(grep_cat_dirlist)
+  else
+    echo -e "\e[1;31m-E-\e[0m No registered directory $(grep_has_empty_dirlist)"
+
+    echo  \
+"
+    Use either one of
+
+      simenv grep add-dir dirpath...
+      simenv grep --add-dir dirpath[,dirpath]*
+    "
   fi
 
 }
 
+# Function: add_directory path-to-dir...
+#
+function _grep__add_directory
+{
+  if ((!$#)); then
+    echo -e "\e[1;31m-E-\e[0m No directory provided."
+    exit 1
+  fi
+
+  touch $_grep_dirlist
+
+  b_linec=$(wc -l $_grep_dirlist | cut -d' ' -f1)
+
+  cato=$(cat <(<$_grep_dirlist) <(readlink -e "$@") | sort -u)
+  echo "$cato" | tee $_grep_dirlist 2>&1 >/dev/null
+
+  a_linec=$(wc -l $_grep_dirlist | cut -d' ' -f1)
+
+  local ignored=0
+  if ((a_linec < b_linec + $#)); then
+    for d in "$@"
+    do
+      if [[ -z $(readlink -e $d) ]]; then
+        echo -e "\e[1;31m-W-\e[0m Directory \e[1m$d\e[0m does not exist, ignored."
+        ((ignored++))
+      fi
+    done
+
+    if ((!ignored)); then
+      echo -e "\e[1;31m-W-\e[0m No new directory added."
+    fi
+  fi
+}
+
+
+# Function: list_directory
+#
+function _grep__list_directory
+{
+  grep_cat_dirlist | nl
+}
+
+
+# Function: grep_cat_dirlist
+#
+function grep_cat_dirlist
+{
+  if [[ -s $_grep_dirlist ]]; then
+    cat $_grep_dirlist
+  fi
+}
+
+# Function: grep_has_empty_dirlist
+#
+function grep_has_empty_dirlist
+{
+  if [[ -s $_grep_dirlist ]]; then
+    echo 0
+  else
+    echo 1 
+  fi
+}

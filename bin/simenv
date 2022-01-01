@@ -2,7 +2,7 @@
 
 shopt -s extglob # globstar
 
-SIMENV_ROOT=$(readlink -e $0 | xargs dirname | xargs dirname)
+export SIMENV_ROOT=$(readlink -e $0 | xargs dirname | xargs dirname)
 
 
 # Registering subcommands

@@ -1,1 +1,4 @@
 .simenv
+*.sw?
+*~
+work
