@@ -1,4 +1,4 @@
-.simenv
+.simenv/
 *.sw?
 *~
 work

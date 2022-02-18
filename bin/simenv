@@ -3,13 +3,11 @@
 shopt -s extglob # globstar
 
 export SIMENV_ROOT=$(readlink -e $0 | xargs dirname | xargs dirname)
+export LIB_DIR=$SIMENV_ROOT/lib
+export SUB_DIR=$SIMENV_ROOT/sub
+export TPL_TOP=$SIMENV_ROOT/tpl
+export DOT_TOP=$SIMENV_ROOT/.simenv
 
+export PATH=$LIB_DIR:$SUB_DIR:$PATH
 
-# Registering subcommands
-source $SIMENV_ROOT/lib/grep
-
-
-#
-# DO NOT REMOVE THIS LINE
-#
-source $SIMENV_ROOT/lib/exec_subcmd
+source  exec_subcmd

@@ -1,0 +1,386 @@
+#!bash
+
+
+export DIRLIST=$DOT/dirlist
+
+function usage
+{
+  if [[ -z $1 ]]; then
+  cat <<USAGE | sed -r 's/grep|--?[[:alnum:]-]+|-x.|[][]|[[:alpha:]]+_dir/\\e[1m&\\e[0m/g
+                        s/(ext|file|dir)glob|eregex|sub|options|cmd|commands|parameters/\\e[4m&\\e[0m/g
+                        s/.*/echo -e "&"/e'
+
+usage: simenv grep [options] eregex... | subcmd [parameters]
+  
+  options:
+    
+    -x  extglob{,extglob}
+        Ignore files ending with the comman separated list of extensions' glob patterns
+
+    -xf fileglob{,fileglob}
+        Ignore files matching the listed comma separated glob patterns
+
+    -xd dirglob{,dirglob}
+        Ignore directories matching the listed comma separated glob patterns
+
+    -h
+    -n
+    -R
+    -i
+        Ignore case
+    -I  
+        Ignore binary files
+    -s
+        Suppress error messages about nonexistent or unreadable files.
+
+
+  subcommands:
+    
+    list_dir
+    add_dir path...
+    rm_dir
+
+USAGE
+  else
+    cat <<SHORT | sed -r 's/(-\s+)(grep)/\1\\e[1m\2\\e[0m/g'  \
+                | sed -r 's/(are )(not)/\1\\e[1m\2\\e[0m/'    \
+                | sed 's/.*/echo -e "&"/e'
+    - grep [-h|--help] ...
+          Small wrapper around grep, which only exposes what's necessary.
+          It provides custom and shorter options to help filter files and directories.
+          But most importantly, directories to search are not specified on the command line but stored in a local file.
+          It is assumed that they are the ones you'll search all the time. There are commands to add/remove/list them.
+
+SHORT
+  fi
+    
+  exit
+}
+
+
+# Function: grep [options] eregex
+#
+#   Positional arguments may be intermixed with options
+#
+function _grep
+{
+  # Display usage and quit if no argument
+  if (($# == 0)); then
+    usage
+  fi
+  
+  for v in "$@"
+  do
+   if [[ $debug ]]; then echo "initial: <$v>"; fi
+  done
+
+  if [[ $debug ]]; then echo; fi
+
+  # Collect the options and positional arguments
+  opts=$(getopt -n simenv -a -o ihnRIsx: -l xf:,xd:,ad,add-directory: -- "$@")
+  if (($? && $? < 4)); then
+    usage
+  fi
+
+
+  eval set -- $opts
+
+  for a
+  do
+    if [[ $debug ]]; then echo "getopt: <$a>"; fi
+  done
+
+  if [[ $debug ]]; then echo; fi
+
+  local k=0
+  while (($#))
+  do
+    if [[ $debug ]]; then echo -e "\e[31mk: $k  <$1>\e[0m"; fi
+    case $1 in
+      -x)
+        for ext in $(echo $2 | sed 's/,/\n/g' | sed 's/^\.//')
+        do
+          if [[ $debug ]]; then echo "ext<$ext>"; fi
+
+          extglobs[$((extglob_id))]=$ext
+          ((extglob_id++))
+        done
+
+        shift 2
+        ;;
+
+      --xf)
+        exclude_file $1 $2
+        shift 2
+        ;;
+
+      --xd)
+        exclude_dir $1 $2
+        shift 2
+        ;;
+
+      -i)
+        ignore_case=1;
+        if [[ $debug ]]; then echo "ignore_case<1>"; fi
+        shift;
+        ;;
+
+      -I)
+        ignore_binary=1;
+        if [[ $debug ]]; then echo "ignore_binary<1>"; fi
+        shift;
+        ;;
+
+      -h)
+        no_filename=1;
+        if [[ $debug ]]; then echo "no_filename<1>"; fi
+        shift;
+        ;;
+
+      -R)
+        symlink_recurse=1;
+        if [[ $debug ]]; then echo "symlink_recurse<1>"; fi
+        shift;
+        ;;
+
+      -n)
+        linenum=1;
+        if [[ $debug ]]; then echo "linenum<1>"; fi
+        shift;
+        ;;
+
+      -s)
+        no_messages=1;
+        if [[ $debug ]]; then echo "no_messages<1>"; fi
+        shift;
+        ;;
+
+      --ad|--add-directory)  
+        if ((k == 1)); then
+          shift
+          ${FUNCNAME}__add_directory "$1"
+          return
+        fi
+        ;;
+
+      --) end_of_options=1
+          if [[ $debug ]]; then echo "########## End Of Options ##########"; fi
+          shift
+          ;;
+
+      -*) echo -e "\e[1;31m-E-\e[0m Unknown option '\e[1;31m$1\e[0m'"
+          usage
+          ;;
+
+      *)  if ((k == 1)); then
+            if [[ $1 =~ ^add(-|_)dir(ectory)?$ ]]; then
+              shift
+              add_directory "$@"
+              return
+            fi
+
+            if [[ $1 =~ ^list(-|_)dir(ectory)?$ ]]; then
+              shift
+              list_directory "$@"
+              return
+            fi
+
+            if [[ $1 =~ ^rm(-|_)dir(ectory)?$ ]]; then
+              shift
+              rm_directory "$@"
+              return
+            fi
+          fi
+
+          params[$((posid))]=$1
+          ((posid++))
+          if [[ $debug ]]; then echo "positional parameter: <$1>"; fi
+          shift
+          ;;
+    esac
+
+    ((k++))
+  done
+
+  if (($(has_empty_dirlist) == 0)); then
+    eval grep -E                        \
+              --color=always            \
+              ${ignore_case:+-i}        \
+              ${ignore_binary:+-I}      \
+              ${no_filename:+-h}        \
+              ${no_messages:+-s}        \
+              ${linenum:+-n}            \
+              $(if ((symlink_recurse)); then echo -R; else echo -r; fi)         \
+              $(for e in "${extglobs[@]}";  do echo "--exclude=*.'$e'"; done)   \
+              $(for f in "${fileglobs[@]}"; do echo "--exclude='$f'"; done)     \
+              $(for d in "${dirglobs[@]}";  do echo "--exclude-dir='$d'"; done) \
+              $(for p in "${params[@]}";    do echo "-e '$p'"; done)            \
+              $(cat_dirlist)
+  else
+    echo -e "\e[1;31m-E-\e[0m No registered directory"
+
+    echo  \
+"
+    Use either one of
+
+      simenv grep add-dir dirpath...
+      simenv grep --add-dir dirpath[,dirpath]*
+    "
+  fi
+
+}
+
+
+# Function: add_directory path-to-dir...
+#
+function add_directory
+{
+  if ((!$#)); then
+    echo -e "\e[1;31m-E-\e[0m No directory provided."
+    exit 1
+  fi
+
+  touch $DIRLIST
+
+  local b_linec=$(wc -l $DIRLIST | cut -d' ' -f1)
+
+  local cato=$(cat $DIRLIST <(readlink -e "$@") | sort -u)
+  echo "$cato" > $DIRLIST
+
+  local a_linec=$(wc -l $DIRLIST | cut -d' ' -f1)
+
+  local ignored=0
+  if ((a_linec < b_linec + $#)); then
+    for d in "$@"
+    do
+      if [[ -z $(readlink -e $d) ]]; then
+        echo -e "\e[1;31m-W-\e[0m Directory \e[1m$d\e[0m does not exist, ignored."
+        ((ignored++))
+      fi
+    done
+
+    if ((!ignored)); then
+      echo -e "\e[1;31m-W-\e[0m No new directory added."
+    fi
+  fi
+}
+
+
+# Function: exclude_file
+#
+function exclude_file
+{
+  _xfid=$((_xfid+1))
+
+  local opt=$1
+  local value=$2
+
+  if [[ $value =~ ^[^,/]+(,[^,/]+)*$ ]]; then
+    for file in $(echo $value | sed 's/,/ /g')
+    do
+      if [[ $debug ]]; then echo "file<$file>"; fi
+
+      fileglobs[$((fileglob_id))]=$file
+      ((fileglob_id++))
+    done
+  else
+    case $_xfid in
+      1) suffix=st;;
+      2) suffix=nd;;
+      3) suffix=rd;;
+      *) suffix=th;;
+    esac
+
+    echo -e "\e[1;31m-E-\e[0m Syntax error with value '\e[1m$value\e[0m' of $_xfid$suffix '\e[1m$opt\e[0m' option"
+    echo -e "\e[1m-I-\e[0m Probably due to the presence of '\e[1m/\e[0m's"
+    exit 2
+  fi
+} # exclude_file
+
+
+# Function: exclude_dir
+#
+function exclude_dir
+{
+  _xdid=$((_xdid+1))
+
+  local opt=$1
+  local value=$2
+
+  if [[ $value =~ ^[^,/]+(,[^,/]+)*$ ]]; then
+    for dir in $(echo $value | sed 's/,/ /g')
+    do
+      if [[ $debug ]]; then echo "dir<$dir>"; fi
+
+      dirglobs[$((dirglob_id))]=$dir
+      ((dirglob_id++))
+    done
+  else
+    case $_xdid in
+      1) suffix=st;;
+      2) suffix=nd;;
+      3) suffix=rd;;
+      *) suffix=th;;
+    esac
+
+    echo -e "\e[1;31m-E-\e[0m Syntax error with value '\e[1m$value\e[0m' of $_xdid$suffix '\e[1m$opt\e[0m' option"
+    echo -e "\e[1m-I-\e[0m Probably due to the presence of '\e[1m/\e[0m's"
+    exit 2
+  fi
+} # exclude_dir
+
+
+# Function: list_directory
+#
+function list_directory
+{
+  cat_dirlist | nl
+}
+
+
+# Function: rm_directory
+#
+function rm_directory
+{
+  PS3="Select a directory to delete: "
+  select d in $(cat_dirlist)
+  do
+    if ((debug)); then echo "d<$d><$REPLY><$?>"; fi
+    if (($? == 0)); then
+      if [[ "$REPLY" =~ ^[[:digit:]]+$ ]] && ((REPLY <= $(cat_dirlist | wc -l | cut -d' ' -f1))) && [[ $d ]]; then
+        break
+      else
+        return
+      fi
+    else
+      return
+    fi
+  done
+  
+  newlist=$(sed -rn "$REPLY ! p" <$DIRLIST)
+  echo "$newlist" > $DIRLIST
+}
+
+
+# Function: cat_dirlist
+#
+function cat_dirlist
+{
+  if [[ -s $DIRLIST ]]; then
+    cat $DIRLIST
+  fi
+}
+
+export -f cat_dirlist
+
+
+# Function: has_empty_dirlist
+#
+function has_empty_dirlist
+{
+  if [[ -s $DIRLIST ]]; then
+    echo 0
+  else
+    echo 1 
+  fi
+}

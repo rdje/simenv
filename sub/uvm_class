@@ -1,0 +1,18 @@
+#!bash
+
+function _uvm_class
+{
+  function usage
+  {
+    cat <<USAGE
+usage: simenv uvm_class [options] name... 
+
+  options:
+
+    
+    
+USAGE
+  }
+
+}
+
