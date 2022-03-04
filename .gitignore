@@ -1,4 +1,5 @@
-.simenv/
+.local
+.run
 *.sw?
 *~
 work
