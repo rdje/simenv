@@ -18,5 +18,68 @@
 
 shopt -s extglob # globstar
 
-main=$(readlink -e $0 | xargs dirname)/main
-source $main
+
+function get_cwd   { echo $cwd; }
+function get_cmdir { echo $(dirname $main); }
+function get_local { echo $(get_cmdir)/.local; }
+function get_run   { echo $(get_cmdir)/.run; }
+function callsub
+{
+  local main=$1
+  if (( callsub )); then echo -e "\e[1;31m$FUNCNAME\e[0m: $main"; fi
+  shift
+  
+  init_dirs
+  source $main "$@" 
+}
+
+
+# Function: init_dirs
+#
+function init_dirs
+{
+  mkdir -p $(get_local) $(get_run)
+  cd $(get_run)
+  #echo rm -f *
+}
+
+# Function: setvar
+#
+function setvar
+{
+  local setid
+  while (($#)); do
+    case $1 in
+      -a) local append=1;
+          shift
+          ;;
+
+      # Collect all positional arguments
+      *)  local setpos[$((setid))]="$1"
+          ((setid++))
+          shift
+          ;;
+    esac
+  done
+
+  set -- "${setpos[@]}"
+
+  if [[ $debug ]]; then echo "$FUNCNAME: #<$#> pos<${setpos[@]}> append<$append>" 1>&2; fi
+
+  if (($# != 2)); then
+    echo $FUNCNAME requires exactly two arguments: "<name> <value>"
+    exit 1
+  fi
+
+  if [[ $debug ]]; then echo "$FUNCNAME: Setting $1 to '$2'" 1>&2; fi
+  
+  if ((append)); then
+    echo "$2" >> $1
+  else
+    echo "$2" > $1
+  fi
+}
+
+
+cwd=$PWD
+callsub $(readlink -e $0 | xargs dirname)/main "$@"

@@ -17,26 +17,19 @@
 # ==========================================================================================
 
 
+# Function: usage
+#
+function usage
+{
+  :
+}
+
+
 # Function: main
 #
 function main
 {
-  if (($#)); then
-    dir=$(dirname $main)
-    sub=$1
-    shift
-  
-    if [[ -s $dir/$sub/main ]]; then
-      (
-        callsub $dir/$sub/main "$@"
-      )
-    else
-      echo -e "\e[1;31m-E-\e[0m Unknown subcommand \e[1m$sub\e[0m\n"
-      callsub $(get_cmdir)/help
-    fi
-  else
-    callsub $(get_cmdir)/help
-  fi
+  cat_dirlist | nl
 }
 
 

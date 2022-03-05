@@ -1,0 +1,86 @@
+#!bash
+# ==========================================================================================
+# Copyright (C) 2022 Richard DJE
+#
+# This file is part of simenv
+#
+# simenv is free software: you can redistribute it and/or modify it under the terms
+# of the GNU General Public License as published by the Free Software Foundation, either 
+# version 3 of the License, or any later version.
+# 
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along with this program. 
+# If not, see <https://www.gnu.org/licenses/>.
+# ==========================================================================================
+
+
+# Function: main
+#
+function main
+{
+  if [[ -z $1 ]]; then
+  cat <<USAGE | sed -r 's/grep|--?[[:alnum:]-]+|-x.|[][]/\\e[1m&\\e[0m/g
+                        s/^(\s*)(list|add|rm|\<name\>|up|down)/\1\\e[1m\2\\e[0m/
+                        s/(\|)(remove)/\1\\e[1m\2\\e[0m/
+                        s/(ext|file|dir)glob|eregex|sub|options|cmd|commands|parameters|path/\\e[4m&\\e[0m/g
+                        s/(name|N|U|D)(=|\|)/\\e[4m\1\\e[0m\2/g
+                        s/(=)(name)/\1\\e[4m\2\\e[0m/
+                        s/(\|)(N)/\1\\e[4m\2\\e[0m/
+                        s/.*/echo -e "&"/e'
+
+usage: simenv grep [options] eregex... | subcmd [parameters]
+  
+  options:
+    
+    -x  extglob{,extglob}
+        Ignore files ending with the comma separated extension glob patterns
+
+    -xf fileglob{,fileglob}
+        Ignore files matching the comma separated file glob patterns
+
+    -xd dirglob{,dirglob}
+        Ignore directories matching the comma separated glob patterns
+
+    -d  name|N
+        Only search the directory whose number or logical name is provided
+
+    -h
+    -n
+    -R
+    -i
+        Ignore case
+    -I  
+        Ignore binary files
+    -s
+        Suppress error messages about nonexistent or unreadable files.
+
+
+  subcommands:
+    
+    list
+    add [name=]path...
+    rm|remove [name|N]
+    name N=name...
+    up name|N [U=1], 
+    down name|N [D=1]
+
+USAGE
+  else
+    cat <<SHORT | sed -r 's/(-\s+)(grep)/\1\\e[1m\2\\e[0m/g'  \
+                | sed -r 's/(are )(not)/\1\\e[1m\2\\e[0m/'    \
+                | sed 's/.*/echo -e "&"/e'
+    - grep [-h|--help] ...
+          Small wrapper around grep, which only exposes what's necessary.
+          It provides custom and shorter options to help filter files and directories.
+          But most importantly, directories to search are not specified on the command line but stored in a local file.
+          It is assumed that they are the ones you'll search all the time. There are subcommands to manage them.
+
+SHORT
+  fi
+}
+
+
+main "$@"

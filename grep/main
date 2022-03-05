@@ -16,78 +16,6 @@
 # If not, see <https://www.gnu.org/licenses/>.
 # ==========================================================================================
 
-function get_cwd   { echo $cwd; }
-function get_cmdir { echo $(dirname $main); }
-function get_local { echo $(get_cmdir)/.local; }
-function get_run   { echo $(get_cmdir)/.run; }
-
-# Function: usage
-#
-function usage
-{
-  if [[ -z $1 ]]; then
-  cat <<USAGE | sed -r 's/grep|--?[[:alnum:]-]+|-x.|[][]/\\e[1m&\\e[0m/g
-                        s/^(\s*)(list|add|rm|\<name\>|up|down)/\1\\e[1m\2\\e[0m/
-                        s/(\|)(remove)/\1\\e[1m\2\\e[0m/
-                        s/(ext|file|dir)glob|eregex|sub|options|cmd|commands|parameters|path/\\e[4m&\\e[0m/g
-                        s/(name|N|U|D)(=|\|)/\\e[4m\1\\e[0m\2/g
-                        s/(=)(name)/\1\\e[4m\2\\e[0m/
-                        s/(\|)(N)/\1\\e[4m\2\\e[0m/
-                        s/.*/echo -e "&"/e'
-
-usage: simenv grep [options] eregex... | subcmd [parameters]
-  
-  options:
-    
-    -x  extglob{,extglob}
-        Ignore files ending with the comma separated extension glob patterns
-
-    -xf fileglob{,fileglob}
-        Ignore files matching the comma separated file glob patterns
-
-    -xd dirglob{,dirglob}
-        Ignore directories matching the comma separated glob patterns
-
-    -d  name|N
-        Only search the directory whose number or logical name is provided
-
-    -h
-    -n
-    -R
-    -i
-        Ignore case
-    -I  
-        Ignore binary files
-    -s
-        Suppress error messages about nonexistent or unreadable files.
-
-
-  subcommands:
-    
-    list
-    add [name=]path...
-    rm|remove [name|N]
-    name N=name...
-    up name|N [U=1], 
-    down name|N [D=1]
-
-USAGE
-  else
-    cat <<SHORT | sed -r 's/(-\s+)(grep)/\1\\e[1m\2\\e[0m/g'  \
-                | sed -r 's/(are )(not)/\1\\e[1m\2\\e[0m/'    \
-                | sed 's/.*/echo -e "&"/e'
-    - grep [-h|--help] ...
-          Small wrapper around grep, which only exposes what's necessary.
-          It provides custom and shorter options to help filter files and directories.
-          But most importantly, directories to search are not specified on the command line but stored in a local file.
-          It is assumed that they are the ones you'll search all the time. There are subcommands to manage them.
-
-SHORT
-  fi
-    
-  exit
-}
-
 
 # Function: grep [options] eregex
 #
@@ -95,10 +23,9 @@ SHORT
 #
 function main
 {
-  echo "$FUNCNAME: PWD<$PWD>"
   # Display usage and quit if no argument
   if (($# == 0)); then
-    usage
+    callsub $(get_cmdir)/help
   fi
   
   for v in "$@"
@@ -111,7 +38,7 @@ function main
   # Collect the options and positional arguments
   opts=$(getopt -n simenv -a -o ihnRIsx:d: -l xf:,xd:,ad,add-directory: -- "$@")
   if (($? && $? < 4)); then
-    usage
+    callsub $(get_cmdir)/help
   fi
 
 
@@ -206,52 +133,52 @@ function main
           ;;
 
       -*) echo -e "\e[1;31m-E-\e[0m Unknown option '\e[1;31m$1\e[0m'"
-          usage
+          callsub $(get_cmdir)/help
           ;;
 
       *)  if ((k == 1)); then
-            if [[ $1 =~ ^add((-|_)dir(ectory)?)?$ ]]; then
-              shift
-              add_directory "$@"
+            local sub=$1
+            shift
+
+            #if [[ $sub =~ ^add((-|_)dir(ectory)?)?$ ]]; then
+            #  add_directory "$@"
+            #  return
+            #fi
+
+            #if [[ $sub =~ ^list((-|_)dir(ectory)?)?$ ]]; then
+            #  list_directory "$@"
+            #  return
+            #fi
+
+            #if [[ $sub =~ ^(rm|remove)((-|_)dir(ectory)?)?$ ]]; then
+            #  rm_directory "$@"
+            #  return
+            #fi
+
+            #if [[ $sub =~ ^name$ ]]; then
+            #  name_directory "$@"
+            #  return
+            #fi
+
+            #if [[ $sub =~ ^up$ ]]; then
+            #  up_directory "$@"
+            #  return
+            #fi
+
+            #if [[ $sub =~ ^down$ ]]; then
+            #  down_directory "$@"
+            #  return
+            #fi
+
+            #if [[ $sub =~ ^usage|help$ ]]; then
+            #  usage "$@"
+            #  return
+            #fi
+
+            if [[ -s $(get_cmdir)/$sub/main ]]; then
+              callsub $(get_cmdir)/$sub/main "$@"
               return
             fi
-
-            if [[ $1 =~ ^list((-|_)dir(ectory)?)?$ ]]; then
-              shift
-              list_directory "$@"
-              return
-            fi
-
-            if [[ $1 =~ ^(rm|remove)((-|_)dir(ectory)?)?$ ]]; then
-              shift
-              rm_directory "$@"
-              return
-            fi
-
-            if [[ $1 =~ ^name$ ]]; then
-              shift
-              name_directory "$@"
-              return
-            fi
-
-            if [[ $1 =~ ^up$ ]]; then
-              shift
-              up_directory "$@"
-              return
-            fi
-
-            if [[ $1 =~ ^down$ ]]; then
-              shift
-              down_directory "$@"
-              return
-            fi
-
-            if [[ $1 =~ ^usage|help$ ]]; then
-              shift
-              usage "$@"
-              return
-            fi
-
           fi
 
           params[$((posid))]=$1
@@ -293,100 +220,6 @@ function main
 }
 
 
-# Function: init
-#
-function init
-{
-  mkdir -p $(get_local) $(get_run)
-  cd $(get_run)
-  #echo rm -rf *
-  echo "$cwd" > cwd
-}
-
-
-function get_dirlist { echo $(get_local)/dirlist; }
-
-# Function: add_directory [name=]path...
-#
-function add_directory
-{
-  #echo "call-stack: ${FUNCNAME[@]}"
-  if ((!$#)); then
-    echo -e "\e[1;31m-E-\e[0m No directory provided."
-    exit 1
-  fi
-
-  echo "<$#> <$*> cwd<$(<cwd)> pwd<`pwd`>"
-  touch $(get_dirlist)
-  touch named
-
-  local b_linec=$(wc -l $(get_dirlist) | cut -d' ' -f1)
-
-  # save named paths in the 'named' variable
-  local pathid=0
-  for p; do
-    if [[ $p =~ ^[[:alpha:]][[:alnum:]_]*= ]]; then
-      #echo "Named: $p"
-      setvar -a named "$(echo -e "$(grep -o '/.*$' <<<$p)\t$(grep -o '^[^=]\+' <<<$p)")"
-
-      newpaths[$((pathid))]="$(grep -o '/.*$' <<<$p)"
-    else
-      #echo "Not named: $p"
-      newpaths[$((pathid))]=$(
-        if ! [[ $p =~ ^/ ]]; then
-          # $p is relative to the startup directory
-          echo $(<cwd)/$p
-        else
-          echo $p
-        fi
-      )
-    fi    
-    
-    #echo "newpaths[$pathid]=${newpaths[$pathid]}; <$p>"
-    ((pathid++))
-  done
-
-  set -- "${newpaths[@]}"
-
-  local cato=$(cat $(get_dirlist) <(readlink -e "$@") | sed -r '\#^[[:alpha:]]# ! s#.*/([^/]+)#\L\1\E &#' | while read name file; do
-      name=$(grep -o '^[[:alnum:]_]\+' <<<$name)
-
-      #echo "file: $name $file"
-
-      local Name
-      match=$(grep "^$file" named)
-      if [[ $match ]]; then
-        Name=$(grep -o '[[:alnum:]_]\+$' <<<$match)
-      fi
-
-      #echo "file:---> oldname<$name>   newname<$Name>   <$file>"
-      if [[ $Name ]]; then
-        name=$Name
-      fi
-
-      printf "%-8s %s\n" $name $file
-    done | sort -k2 -u
-  )
-
-  echo "$cato" > $(get_dirlist)
-
-  local a_linec=$(wc -l $(get_dirlist) | cut -d' ' -f1)
-
-  local ignored=0
-  if ((a_linec < b_linec + $#)); then
-    for d in "$@"
-    do
-      if [[ -z $(readlink -e $d) ]]; then
-        echo -e "\e[1;31m-W-\e[0m Directory \e[1m$d\e[0m does not exist, ignored."
-        ((ignored++))
-      fi
-    done
-
-    if ((!ignored)); then
-      echo -e "\e[1;31m-W-\e[0m No new directory added."
-    fi
-  fi
-}
 
 
 # Function: exclude_file
@@ -453,210 +286,10 @@ function exclude_dir
 } # exclude_dir
 
 
-# Function: list_directory
-#
-function list_directory
-{
-  cat_dirlist | nl
-}
-
-
-# Function: rm_directory  [name|N]
-#
-function rm_directory
-{
-  if [[ $debug ]]; then echo "$FUNCNAME: <$#> <$@>"; fi
-
-  local id=$1
-
-  if [[ -z $id ]]; then
-    PS3="Select a directory to delete: "
-    select d in $(cat_dirlist)
-    do
-      if ((debug)); then echo "d<$d><$REPLY><$?>"; fi
-      if (($? == 0)); then
-        if [[ "$REPLY" =~ ^[[:digit:]]+$ ]] && ((REPLY <= $(cat_dirlist | wc -l | cut -d' ' -f1))) && [[ $d ]]; then
-          break
-        else
-          return
-        fi
-      else
-        return
-      fi
-    done
-    
-    newlist=$(sed -rn "$REPLY ! p" <$(get_dirlist))
-    echo "$newlist" > $(get_dirlist)
-  else
-    b_wc=$(wc -l $(get_dirlist) | cut -d' ' -f1)
-
-    removed=$(cat_dirlist | nl -nln | if [[ $id =~ ^[[:alpha:]] ]]; then
-        sed -r '/\s+'$id'\s/d'
-      else
-        sed -r '/^'$id'\s/d'
-      fi)
-   
-    a_wc=$(echo "$removed" | wc -l | cut -d' ' -f1)
-
-    if ((b_wc == a_wc)); then
-      echo -e "\e[1m-W-\e[0m No match found for '\e[1m$id\e[0m'"
-      return
-    fi
-
-    echo "$removed" | sed -r 's/^[[:digit:]]+\s+//' | tee $(get_dirlist) | nl
-  fi
-}
-
-function setvar
-{
-  local setid
-  while (($#)); do
-    case $1 in
-      -a) local append=1;
-          shift
-          ;;
-
-      # Collect all positional arguments
-      *)  local setpos[$((setid))]="$1"
-          ((setid++))
-          shift
-          ;;
-    esac
-  done
-
-  set -- "${setpos[@]}"
-
-  if [[ $debug ]]; then echo "$FUNCNAME: #<$#> pos<${setpos[@]}> append<$append>" 1>&2; fi
-
-  if (($# != 2)); then
-    echo $FUNCNAME requires exactly two arguments: "<name> <value>"
-    exit 1
-  fi
-
-  if [[ $debug ]]; then echo "$FUNCNAME: Setting $1 to '$2'" 1>&2; fi
-  
-  if ((append)); then
-    echo "$2" >> $1
-  else
-    echo "$2" > $1
-  fi
-}
-
-export -f setvar
-
-
-# Function: name_directory
-#
-function name_directory
-{
-  
-  if [[ $debug ]]; then echo "$FUNCNAME: <$#> <$@>"; fi
-
-  if ((!$#)); then
-    echo -e "usage: simenv grep name N=name..." | sed 's/name/\\e[1m&\\e[0m/; s/N/\\e[4m&\\e[0m/; s/name/\\e[4m&\\e[0m/2; s/.*/echo -e "&"/e'
-    return
-  fi
-
-  setvar maxid 0
-  eval num_names=($(grep -o '\S\+' <<<"$@" | sed 's/=/ /' | while read id va; do
-      if ((id > $(<maxid))); then
-        setvar maxid $id
-        
-        if [[ $debug ]]; then echo $FUNCNAME: new max is $(<maxid) 1>&2; fi
-      fi
-
-      echo "[$id]=$va"
-    done
-  ))
-
-
-  dirlist=`cat_dirlist  | nl -nln | while read linenum name_path; do
-    name=$(grep -o '^\w\+' <<<$name_path)
-    path=$(grep -o '/.*$'  <<<$name_path)
-
-    if [[ ${num_names[$linenum]} ]]; then
-      #if [[ $name_path =~ ^/ ]]; then
-      #  echo -e "\tNo name attached yet, \e[1m${num_names[$linenum]}\e[0m will be applied" 
-      #else
-      #  echo -e "\tCurrent name will be replaced" 
-      #fi
-      
-      printf "%-8s%s\n" "${num_names[$linenum]}" $path
-    else
-      printf "%-8s%s\n" "$name" $path
-    fi 
-  done`
-
-  echo "$dirlist" | tee $(get_dirlist) | nl
-}
-
-# Function: up_directory N|name [U=1]
-#
-function up_directory
-{
-  #echo "$FUNCNAME: <$#> <$@>"
-  
-  if (($# == 0 || $# > 2)); then
-    echo  "usage: simenv grep up N|name [U=1]" | sed -r 's/-E-/\\\\e[1;31m&\\\\e[0m/; s/up/\\\\e[1m&\\\\e[0m/; s/N|name|U/\\\\e[4m&\\\\e[0m/g' | xargs echo -e
-    return 
-  fi
-
-  id=$1
-  up=${2:-1}
-
-  filtered=$(cat_dirlist | nl -nln | if [[ $id =~ ^[[:alpha:]] ]]; then
-      sed -r '/\s+'$id'\s.*/ {s/.*/setvar  selected "&"/e; d}'
-    else
-      sed -r '/^'$id'\s+.*/  {s/.*/setvar  selected  "&"/e; d}'
-    fi
-  )
-
-  cpos=$(grep -o '^[[:digit:]]\+' selected)
-  npos=$((cpos - up))
-  if ((npos <= 0)); then
-    npos=1
-  fi
-
-  #echo "cpos<$cpos> --> npos<$npos>"
-  echo "$filtered" | sed -r '/^'$npos'/i'"$(<selected)" | sed -r 's/^.*\s+([[:alpha:]].*)/\1/' | tee $(get_dirlist) | nl
-}
-
-# Function: down_directory N|name [D=1]
-#
-function down_directory
-{
-  #echo "$FUNCNAME: <$#> <$@>"
-  if (($# == 0 || $# > 2)); then
-    echo  "usage: simenv grep down N|name [U=1]" | sed -r 's/-E-/\\\\e[1;31m&\\\\e[0m/; s/down/\\\\e[1m&\\\\e[0m/; s/N|name|U/\\\\e[4m&\\\\e[0m/g' | xargs echo -e
-    return 
-  fi
-
-  id=$1
-  down=${2:-1}
-
-  filtered=$(cat_dirlist | nl -nln | if [[ $id =~ ^[[:alpha:]] ]]; then
-      sed -r '/\s+'$id'\s.*/ {s/.*/setvar  selected "&"/e; d}'
-    else
-      sed -r '/^'$id'\s+.*/  {s/.*/setvar  selected  "&"/e; d}'
-    fi
-  )
-
-  cpos=$(grep -o '^[[:digit:]]\+' selected)
-  npos=$((cpos + down))
-  dirlist_lcnt=$(wc -l $(get_dirlist) | cut -d' ' -f1)
-  if ((npos >= $dirlist_lcnt)); then
-    npos=$dirlist_lcnt
-  fi
-
-  #echo "cpos<$cpos> --> npos<$npos>"
-  echo "$filtered" | sed -r '/^'$npos'/a'"$(<selected)" | sed -r 's/^.*\s+([[:alpha:]].*)/\1/' | tee $(get_dirlist) | nl
-}
-
 # Function: cat_dirlist
 #
 function cat_dirlist
 {
-  #echo "$FUNCNAME: arg<$1>"
   if [[ -s $(get_dirlist) ]]; then
     local id=$1
 
@@ -672,8 +305,6 @@ function cat_dirlist
   fi
 }
 
-export -f cat_dirlist
-
 
 # Function: has_empty_dirlist
 #
@@ -686,8 +317,12 @@ function has_empty_dirlist
   fi
 }
 
+this_local=$(get_local)
+function get_dirlist
+{
+  echo $this_local/dirlist
+}
 
-init
 main "$@"
 
 

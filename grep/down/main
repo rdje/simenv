@@ -17,26 +17,43 @@
 # ==========================================================================================
 
 
-# Function: main
+# Function: usage
+#
+function usage
+{
+  :
+}
+
+
+# Function: main N|name [D=1]
 #
 function main
 {
-  if (($#)); then
-    dir=$(dirname $main)
-    sub=$1
-    shift
-  
-    if [[ -s $dir/$sub/main ]]; then
-      (
-        callsub $dir/$sub/main "$@"
-      )
-    else
-      echo -e "\e[1;31m-E-\e[0m Unknown subcommand \e[1m$sub\e[0m\n"
-      callsub $(get_cmdir)/help
-    fi
-  else
-    callsub $(get_cmdir)/help
+  #echo "$FUNCNAME: <$#> <$@>"
+  if (($# == 0 || $# > 2)); then
+    echo  "usage: simenv grep down N|name [U=1]" | sed -r 's/-E-/\\\\e[1;31m&\\\\e[0m/; s/down/\\\\e[1m&\\\\e[0m/; s/N|name|U/\\\\e[4m&\\\\e[0m/g' | xargs echo -e
+    return 
   fi
+
+  id=$1
+  down=${2:-1}
+
+  filtered=$(cat_dirlist | nl -nln | if [[ $id =~ ^[[:alpha:]] ]]; then
+      sed -r '/\s+'$id'\s.*/ {s/.*/setvar  selected "&"/e; d}'
+    else
+      sed -r '/^'$id'\s+.*/  {s/.*/setvar  selected  "&"/e; d}'
+    fi
+  )
+
+  cpos=$(grep -o '^[[:digit:]]\+' selected)
+  npos=$((cpos + down))
+  dirlist_lcnt=$(wc -l $(get_dirlist) | cut -d' ' -f1)
+  if ((npos >= $dirlist_lcnt)); then
+    npos=$dirlist_lcnt
+  fi
+
+  #echo "cpos<$cpos> --> npos<$npos>"
+  echo "$filtered" | sed -r '/^'$npos'/a'"$(<selected)" | sed -r 's/^.*\s+([[:alpha:]].*)/\1/' | tee $(get_dirlist) | nl
 }
 
 

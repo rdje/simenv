@@ -1,0 +1,75 @@
+#!bash
+# ==========================================================================================
+# Copyright (C) 2022 Richard DJE
+#
+# This file is part of simenv
+#
+# simenv is free software: you can redistribute it and/or modify it under the terms
+# of the GNU General Public License as published by the Free Software Foundation, either 
+# version 3 of the License, or any later version.
+# 
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along with this program. 
+# If not, see <https://www.gnu.org/licenses/>.
+# ==========================================================================================
+
+
+# Function: usage
+#
+function usage
+{
+  :
+}
+
+
+# Function: main  [name|N]
+#
+function main
+{
+  if [[ $debug ]]; then echo "$FUNCNAME: <$#> <$@>"; fi
+
+  local id=$1
+
+  if [[ -z $id ]]; then
+    PS3="Select a directory to delete: "
+    select d in $(cat_dirlist)
+    do
+      if ((debug)); then echo "d<$d><$REPLY><$?>"; fi
+      if (($? == 0)); then
+        if [[ "$REPLY" =~ ^[[:digit:]]+$ ]] && ((REPLY <= $(cat_dirlist | wc -l | cut -d' ' -f1))) && [[ $d ]]; then
+          break
+        else
+          return
+        fi
+      else
+        return
+      fi
+    done
+    
+    newlist=$(sed -rn "$REPLY ! p" <$(get_dirlist))
+    echo "$newlist" > $(get_dirlist)
+  else
+    b_wc=$(wc -l $(get_dirlist) | cut -d' ' -f1)
+
+    removed=$(cat_dirlist | nl -nln | if [[ $id =~ ^[[:alpha:]] ]]; then
+        sed -r '/\s+'$id'\s/d'
+      else
+        sed -r '/^'$id'\s/d'
+      fi)
+   
+    a_wc=$(echo "$removed" | wc -l | cut -d' ' -f1)
+
+    if ((b_wc == a_wc)); then
+      echo -e "\e[1m-W-\e[0m No match found for '\e[1m$id\e[0m'"
+      return
+    fi
+
+    echo "$removed" | sed -r 's/^[[:digit:]]+\s+//' | tee $(get_dirlist) | nl
+  fi
+}
+
+
+main "$@"

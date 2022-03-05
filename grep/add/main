@@ -1,0 +1,110 @@
+#!bash
+# ==========================================================================================
+# Copyright (C) 2022 Richard DJE
+#
+# This file is part of simenv
+#
+# simenv is free software: you can redistribute it and/or modify it under the terms
+# of the GNU General Public License as published by the Free Software Foundation, either 
+# version 3 of the License, or any later version.
+# 
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along with this program. 
+# If not, see <https://www.gnu.org/licenses/>.
+# ==========================================================================================
+
+
+# Function: usage
+#
+function usage
+{
+  :
+}
+
+
+# Function: main [name=]path...
+#
+function main
+{
+  if ((!$#)); then
+    echo -e "\e[1;31m-E-\e[0m No directory provided."
+    exit 1
+  fi
+
+  echo "<$#> <$*> cwd<$(get_cwd)> pwd<`pwd`>"
+  touch $(get_dirlist)
+  touch named
+
+  local b_linec=$(wc -l $(get_dirlist) | cut -d' ' -f1)
+
+  # save named paths in the 'named' variable
+  local pathid=0
+  for p; do
+    if [[ $p =~ ^[[:alpha:]][[:alnum:]_]*= ]]; then
+      #echo "Named: $p"
+      setvar -a named "$(echo -e "$(grep -o '/.*$' <<<$p)\t$(grep -o '^[^=]\+' <<<$p)")"
+
+      newpaths[$((pathid))]="$(grep -o '/.*$' <<<$p)"
+    else
+      #echo "Not named: $p"
+      newpaths[$((pathid))]=$(
+        if ! [[ $p =~ ^/ ]]; then
+          # $p is relative to the startup directory
+          echo $(get_cwd)/$p
+        else
+          echo $p
+        fi
+      )
+    fi    
+    
+    #echo "newpaths[$pathid]=${newpaths[$pathid]}; <$p>"
+    ((pathid++))
+  done
+
+  set -- "${newpaths[@]}"
+
+  local cato=$(cat $(get_dirlist) <(readlink -e "$@") | sed -r '\#^[[:alpha:]]# ! s#.*/([^/]+)#\L\1\E &#' | while read name file; do
+      name=$(grep -o '^[[:alnum:]_]\+' <<<$name)
+
+      #echo "file: $name $file"
+
+      local Name
+      match=$(grep "^$file" named)
+      if [[ $match ]]; then
+        Name=$(grep -o '[[:alnum:]_]\+$' <<<$match)
+      fi
+
+      #echo "file:---> oldname<$name>   newname<$Name>   <$file>"
+      if [[ $Name ]]; then
+        name=$Name
+      fi
+
+      printf "%-8s %s\n" $name $file
+    done | sort -k2 -u
+  )
+
+  echo "$cato" > $(get_dirlist)
+
+  local a_linec=$(wc -l $(get_dirlist) | cut -d' ' -f1)
+
+  local ignored=0
+  if ((a_linec < b_linec + $#)); then
+    for d in "$@"
+    do
+      if [[ -z $(readlink -e $d) ]]; then
+        echo -e "\e[1;31m-W-\e[0m Directory \e[1m$d\e[0m does not exist, ignored."
+        ((ignored++))
+      fi
+    done
+
+    if ((!ignored)); then
+      echo -e "\e[1;31m-W-\e[0m No new directory added."
+    fi
+  fi
+}
+
+
+main "$@"

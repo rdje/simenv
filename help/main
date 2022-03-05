@@ -21,22 +21,22 @@
 #
 function main
 {
-  if (($#)); then
-    dir=$(dirname $main)
-    sub=$1
-    shift
+  if (($#)); then return; fi
+
+  cat <<USAGE | sed -r 's/simenv/\\e[1m&\\e[0m/; s/sub\w+/\\e[4m&\\e[0m/g' | sed 's/.*/echo -e "&"/e' 
+usage: simenv subcmd [options] [arguments]
   
-    if [[ -s $dir/$sub/main ]]; then
-      (
-        callsub $dir/$sub/main "$@"
-      )
-    else
-      echo -e "\e[1;31m-E-\e[0m Unknown subcommand \e[1m$sub\e[0m\n"
-      callsub $(get_cmdir)/help
-    fi
-  else
-    callsub $(get_cmdir)/help
-  fi
+  subcommands:
+    
+$(
+  for s in $(ls $(readlink -e $(get_cmdir)/../*/main)); do
+    (
+       callsub $s help short
+    )
+  done
+)
+USAGE
+  echo
 }
 
 

@@ -1,0 +1,74 @@
+#!bash
+# ==========================================================================================
+# Copyright (C) 2022 Richard DJE
+#
+# This file is part of simenv
+#
+# simenv is free software: you can redistribute it and/or modify it under the terms
+# of the GNU General Public License as published by the Free Software Foundation, either 
+# version 3 of the License, or any later version.
+# 
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along with this program. 
+# If not, see <https://www.gnu.org/licenses/>.
+# ==========================================================================================
+
+
+# Function: usage
+#
+function usage
+{
+  :
+}
+
+
+# Function: main
+#
+function main
+{
+  
+  if [[ $debug ]]; then echo "$FUNCNAME: <$#> <$@>"; fi
+
+  if ((!$#)); then
+    echo -e "usage: simenv grep name N=name..." | sed 's/name/\\e[1m&\\e[0m/; s/N/\\e[4m&\\e[0m/; s/name/\\e[4m&\\e[0m/2; s/.*/echo -e "&"/e'
+    return
+  fi
+
+  setvar maxid 0
+  eval num_names=($(grep -o '\S\+' <<<"$@" | sed 's/=/ /' | while read id va; do
+      if ((id > $(<maxid))); then
+        setvar maxid $id
+        
+        if [[ $debug ]]; then echo $FUNCNAME: new max is $(<maxid) 1>&2; fi
+      fi
+
+      echo "[$id]=$va"
+    done
+  ))
+
+
+  dirlist=`cat_dirlist  | nl -nln | while read linenum name_path; do
+    name=$(grep -o '^\w\+' <<<$name_path)
+    path=$(grep -o '/.*$'  <<<$name_path)
+
+    if [[ ${num_names[$linenum]} ]]; then
+      #if [[ $name_path =~ ^/ ]]; then
+      #  echo -e "\tNo name attached yet, \e[1m${num_names[$linenum]}\e[0m will be applied" 
+      #else
+      #  echo -e "\tCurrent name will be replaced" 
+      #fi
+      
+      printf "%-8s%s\n" "${num_names[$linenum]}" $path
+    else
+      printf "%-8s%s\n" "$name" $path
+    fi 
+  done`
+
+  echo "$dirlist" | tee $(get_dirlist) | nl
+}
+
+
+main "$@"
