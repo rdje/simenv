@@ -17,22 +17,24 @@
 # ==========================================================================================
 
 
-# Function: usage
-#
-function usage
-{
-  :
-}
-
-
-# Function: main [name=]path...
+# Function: main [name=]path ...
 #
 function main
 {
-  if ((!$#)); then
+  if (($# == 0)); then
     echo -e "\e[1;31m-E-\e[0m No directory provided."
-    exit 1
+    callsub $(get_subdir)/help
+    return
   fi
+
+  if [[ -d $(get_subdir)/$1 ]]; then
+    local _sub=$1
+    shift
+  
+    callsub $(get_subdir)/$_sub "$@"
+    return
+  fi
+
 
   echo "<$#> <$*> cwd<$(get_cwd)> pwd<`pwd`>"
   touch $(get_dirlist)

@@ -21,28 +21,13 @@
 #
 function main
 {
-  if (($#)); then return; fi
-
-  cat <<USAGE | sed -r 's/simenv/\\e[1m&\\e[0m/; s/sub\w+|options|arguments/\\e[4m&\\e[0m/g'  \
-              | sed -r 's/-\s(help)/- \\e[1m\1\\e[0m/'                      \
-              | sed    's/.*/echo -e "&"/e'              
-usage: simenv [-h|--help]
-       simenv subcmd [options] [arguments]
-  
-  level-1 subcommands:
-
-    - help
-          Print this help and exit.
-    
-$(
-  for s in $(ls $(readlink -e $(get_subdir)/../*/main) | xargs dirname); do
-    (
-       callsub $s help short
-    )
-  done
-)
-USAGE
-  echo
+  cat <<HELP  | sed -r 's/name/\\e[1m&\\e[0m/
+                        s/N/\\e[4m&\\e[0m/
+                        s/name/\\e[4m&\\e[0m/2
+                        s/(\|)(help)/\1\\e[1m\2\\e[0m/
+                        s/.*/echo -e "&"/e'
+usage: $(get_subpath -1) [-h|--help|help] N=name ...
+HELP
 }
 
 

@@ -17,21 +17,55 @@
 # ==========================================================================================
 
 
-# Function: usage
-#
-function usage
-{
-  :
-}
-
-
 # Function: main  [name|N]
 #
 function main
 {
-  if [[ $debug ]]; then echo "$FUNCNAME: <$#> <$@>"; fi
+  if (($# == 0)); then
+    callsub $(get_subdir)/help
+    return
+  fi
 
-  local id=$1
+  if [[ -d $(get_subdir)/$1 ]]; then
+    local _sub=$1
+    shift
+    
+    callsub $(get_subdir)/$_sub "$@"
+    return
+  fi
+
+  opt=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
+  if (( $? && $? < 4)); then
+    callsub $(get_subdir)/help
+    exit 1
+  fi
+
+  eval set -- $opt
+
+  local posid
+  while (($#)); do
+    case $1 in
+      -h|--help)
+          callsub $(get_subdir)/help 
+          return
+          ;;
+
+      --) shift;;
+
+      *)  local pos[$((posid++))]=$1 
+          shift
+          ;;
+    esac
+  done
+
+
+  set -- "${pos[@]}"
+
+  # for p; do
+  #   echo "p<$p>"
+  # done
+
+  id=$1
 
   if [[ -z $id ]]; then
     PS3="Select a directory to delete: "

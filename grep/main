@@ -17,17 +17,24 @@
 # ==========================================================================================
 
 
-# Function: grep [options] eregex
-#
-#   Positional arguments may be intermixed with options
+# Function: main
 #
 function main
 {
-  # Display usage and quit if no argument
   if (($# == 0)); then
-    callsub $(get_cmdir)/help
+    callsub $(get_subdir)/help
+    return
   fi
-  
+
+  if [[ -d $(get_subdir)/$1 ]]; then
+    local _sub=$1
+    shift
+    
+    callsub $(get_subdir)/$_sub "$@"
+    return
+  fi
+
+           
   for v in "$@"
   do
    if [[ $debug ]]; then echo "initial: <$v>"; fi
@@ -38,7 +45,8 @@ function main
   # Collect the options and positional arguments
   opts=$(getopt -n simenv -a -o ihnRIsx:d: -l xf:,xd:,ad,add-directory: -- "$@")
   if (($? && $? < 4)); then
-    callsub $(get_cmdir)/help
+    callsub $(get_subdir)/help
+    return
   fi
 
 
@@ -133,55 +141,11 @@ function main
           ;;
 
       -*) echo -e "\e[1;31m-E-\e[0m Unknown option '\e[1;31m$1\e[0m'"
-          callsub $(get_cmdir)/help
+          callsub $(get_subdir)/help
+          return
           ;;
 
-      *)  if ((k == 1)); then
-            local sub=$1
-            shift
-
-            #if [[ $sub =~ ^add((-|_)dir(ectory)?)?$ ]]; then
-            #  add_directory "$@"
-            #  return
-            #fi
-
-            #if [[ $sub =~ ^list((-|_)dir(ectory)?)?$ ]]; then
-            #  list_directory "$@"
-            #  return
-            #fi
-
-            #if [[ $sub =~ ^(rm|remove)((-|_)dir(ectory)?)?$ ]]; then
-            #  rm_directory "$@"
-            #  return
-            #fi
-
-            #if [[ $sub =~ ^name$ ]]; then
-            #  name_directory "$@"
-            #  return
-            #fi
-
-            #if [[ $sub =~ ^up$ ]]; then
-            #  up_directory "$@"
-            #  return
-            #fi
-
-            #if [[ $sub =~ ^down$ ]]; then
-            #  down_directory "$@"
-            #  return
-            #fi
-
-            #if [[ $sub =~ ^usage|help$ ]]; then
-            #  usage "$@"
-            #  return
-            #fi
-
-            if [[ -s $(get_cmdir)/$sub/main ]]; then
-              callsub $(get_cmdir)/$sub/main "$@"
-              return
-            fi
-          fi
-
-          params[$((posid))]=$1
+      *)  params[$((posid))]=$1
           ((posid++))
           if [[ $debug ]]; then echo "positional parameter: <$1>"; fi
           shift
@@ -206,15 +170,10 @@ function main
               $(for p in "${params[@]}";    do echo "-e '$p'"; done)            \
               $(cat_dirlist $sd)
   else
-    echo -e "\e[1;31m-E-\e[0m No registered directory"
+    echo -e "\e[1;31m-E-\e[0m No registered directory\n"
+    echo Try
+    callsub $(get_subdir)/add
 
-    echo  \
-"
-    Use either one of
-
-      simenv grep add-dir dirpath...
-      simenv grep --add-dir dirpath[,dirpath]*
-    "
   fi
 
 }
@@ -322,6 +281,7 @@ function get_dirlist
 {
   echo $this_local/dirlist
 }
+
 
 main "$@"
 

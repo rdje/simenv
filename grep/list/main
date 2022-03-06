@@ -17,18 +17,47 @@
 # ==========================================================================================
 
 
-# Function: usage
-#
-function usage
-{
-  :
-}
-
-
 # Function: main
 #
 function main
 {
+  if [[ $1 ]] && [[ -d $(get_subdir)/$1 ]]; then
+    local _sub=$1
+    shift
+    
+    callsub $(get_subdir)/$_sub "$@"
+    return
+  fi
+
+  opt=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
+  if (( $? && $? < 4)); then
+    callsub $(get_subdir)/help
+    exit 1
+  fi
+
+  eval set -- $opt
+
+  local posid
+  while (($#)); do
+    case $1 in
+      -h|--help)
+          callsub $(get_subdir)/help 
+          return
+          ;;
+
+      --) shift
+          ;;
+
+      *)  local pos[$((posid++))]=$1 
+          shift
+          ;;
+    esac
+  done
+
+
+  set -- "${pos[@]}"        
+
+
   cat_dirlist | nl
 }
 

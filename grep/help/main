@@ -24,14 +24,13 @@ function main
   if [[ -z $1 ]]; then
   cat <<USAGE | sed -r 's/grep|--?[[:alnum:]-]+|-x.|[][]/\\e[1m&\\e[0m/g
                         s/^(\s*)(list|add|rm|\<name\>|up|down)/\1\\e[1m\2\\e[0m/
-                        s/(\|)(remove)/\1\\e[1m\2\\e[0m/
                         s/(ext|file|dir)glob|eregex|sub|options|cmd|commands|parameters|path/\\e[4m&\\e[0m/g
                         s/(name|N|U|D)(=|\|)/\\e[4m\1\\e[0m\2/g
                         s/(=)(name)/\1\\e[4m\2\\e[0m/
                         s/(\|)(N)/\1\\e[4m\2\\e[0m/
                         s/.*/echo -e "&"/e'
 
-usage: simenv grep [options] eregex... | subcmd [parameters]
+usage: simenv grep [options] eregex | subcmd [parameters]
   
   options:
     
@@ -61,22 +60,23 @@ usage: simenv grep [options] eregex... | subcmd [parameters]
   subcommands:
     
     list
-    add [name=]path...
-    rm|remove [name|N]
-    name N=name...
-    up name|N [U=1], 
+    add  [name=]path ...
+    rm   [name|N]
+    name N=name ...
+    up   name|N [U=1]
     down name|N [D=1]
 
 USAGE
   else
     cat <<SHORT | sed -r 's/(-\s+)(grep)/\1\\e[1m\2\\e[0m/g'  \
                 | sed -r 's/(are )(not)/\1\\e[1m\2\\e[0m/'    \
+                | sed -r 's/(\|)(help)/\1\\e[1m\2\\e[0m/'     \
                 | sed 's/.*/echo -e "&"/e'
-    - grep [-h|--help] ...
+    - grep [--help|help] ...
           Small wrapper around grep, which only exposes what's necessary.
           It provides custom and shorter options to help filter files and directories.
           But most importantly, directories to search are not specified on the command line but stored in a local file.
-          It is assumed that they are the ones you'll search all the time. There are subcommands to manage them.
+          It is assumed that they are the ones you'll search all the time. There are grep's subcommands to manage them.
 
 SHORT
   fi

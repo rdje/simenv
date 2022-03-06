@@ -1,0 +1,71 @@
+#!bash
+# ==========================================================================================
+# Copyright (C) 2022 Richard DJE
+#
+# This file is part of simenv
+#
+# simenv is free software: you can redistribute it and/or modify it under the terms
+# of the GNU General Public License as published by the Free Software Foundation, either 
+# version 3 of the License, or any later version.
+# 
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along with this program. 
+# If not, see <https://www.gnu.org/licenses/>.
+# ==========================================================================================
+
+
+# Function: main
+#
+function main
+{
+  if (($# == 0)); then
+    callsub $(get_subdir)/help
+    return
+  fi
+
+  if [[ -d $(get_subdir)/$1 ]]; then
+    local _sub=$1
+    shift
+    
+    callsub $(get_subdir)/$_sub "$@"
+    return
+  fi
+
+
+  opt=$(getopt -qa -oh -lhelp,depth: -- "$@")
+  if (( $? && $? < 4)); then
+    echo -e "\e[1;31m-E-\e[0m Unrecognised option '\e[1m$1\e[0m'" 
+    callsub $(get_subdir)/help
+    exit 1
+  fi
+
+  eval set -- $opt
+
+  while (($#)); do
+    case $1 in
+      -h|--help)
+          callsub $(get_subdir)/help
+          return
+          ;;
+
+      --depth)
+          local depth=$2
+          shift 2
+          
+          echo "depth<$depth>"
+          ;;   
+
+      --) shift
+          ;;
+
+      *)  shift # For now
+          ;;
+    esac
+  done
+}
+
+
+main "$@"

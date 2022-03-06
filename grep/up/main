@@ -17,20 +17,53 @@
 # ==========================================================================================
 
 
-# Function: usage
-#
-function usage
-{
-  :
-}
-
-
-# Function: main N|name [U=1]
+# Function: main
 #
 function main
 {
   if (($# == 0 || $# > 2)); then
-    echo  "usage: simenv grep up N|name [U=1]" | sed -r 's/-E-/\\\\e[1;31m&\\\\e[0m/; s/up/\\\\e[1m&\\\\e[0m/; s/N|name|U/\\\\e[4m&\\\\e[0m/g' | xargs echo -e
+    callsub $(get_subdir)/help
+    return 
+  fi
+
+  if [[ -d $(get_subdir)/$1 ]]; then
+    local _sub=$1
+    shift
+    
+    callsub $(get_subdir)/$_sub "$@"
+    return
+  fi
+
+  opt=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
+  if (( $? && $? < 4)); then
+    callsub $(get_subdir)/help
+    exit 1
+  fi
+
+  eval set -- $opt
+
+  local posid
+  while (($#)); do
+    case $1 in
+      -h|--help)
+          callsub $(get_subdir)/help 
+          return
+          ;;
+
+      --) shift;;
+
+      *)  local pos[$((posid++))]=$1 
+          shift
+          ;;
+    esac
+  done
+
+
+  set -- "${pos[@]}"
+
+  if (($# > 2)); then
+    echo -e "\e[1;31m-E-\e[0m Too many positional arguments (max=2)"
+    callsub $(get_subdir)/help
     return 
   fi
 
@@ -43,6 +76,11 @@ function main
       sed -r '/^'$id'\s+.*/  {s/.*/setvar  selected  "&"/e; d}'
     fi
   )
+
+  if [[ ! -f selected ]]; then
+    echo -e "\e[1;31m-W-\e[0m No match"
+    return
+  fi
 
   cpos=$(grep -o '^[[:digit:]]\+' selected)
   npos=$((cpos - up))

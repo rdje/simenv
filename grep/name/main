@@ -17,25 +17,50 @@
 # ==========================================================================================
 
 
-# Function: usage
-#
-function usage
-{
-  :
-}
-
-
 # Function: main
 #
 function main
 {
-  
-  if [[ $debug ]]; then echo "$FUNCNAME: <$#> <$@>"; fi
+  if (($# == 0)); then
+    callsub $(get_subdir)/help
+    return 
+  fi
 
-  if ((!$#)); then
-    echo -e "usage: simenv grep name N=name..." | sed 's/name/\\e[1m&\\e[0m/; s/N/\\e[4m&\\e[0m/; s/name/\\e[4m&\\e[0m/2; s/.*/echo -e "&"/e'
+  if [[ -d $(get_subdir)/$1 ]]; then
+    local _sub=$1
+    shift
+    
+    callsub $(get_subdir)/$_sub "$@"
     return
   fi
+
+  opt=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
+  if (( $? && $? < 4)); then
+    callsub $(get_subdir)/help
+    exit 1
+  fi
+
+  eval set -- $opt
+
+  local posid
+  while (($#)); do
+    case $1 in
+      -h|--help)
+          callsub $(get_subdir)/help 
+          return
+          ;;
+
+      --) shift;;
+
+      *)  local pos[$((posid++))]=$1 
+          shift
+          ;;
+    esac
+  done
+
+
+  set -- "${pos[@]}"
+
 
   setvar maxid 0
   eval num_names=($(grep -o '\S\+' <<<"$@" | sed 's/=/ /' | while read id va; do
@@ -50,7 +75,7 @@ function main
   ))
 
 
-  dirlist=`cat_dirlist  | nl -nln | while read linenum name_path; do
+  dirlist=`cat_dirlist | nl -nln | while read linenum name_path; do
     name=$(grep -o '^\w\+' <<<$name_path)
     path=$(grep -o '/.*$'  <<<$name_path)
 

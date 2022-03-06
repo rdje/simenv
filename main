@@ -21,22 +21,31 @@
 #
 function main
 {
-  if (($#)); then
-    dir=$(dirname $main)
-    sub=$1
+  if (($# == 0)); then
+    callsub $(get_subdir)/help
+    return
+  fi
+
+  if [[ -d $(get_subdir)/$1 ]]; then
+    local _sub=$1
     shift
   
-    if [[ -s $dir/$sub/main ]]; then
-      (
-        callsub $dir/$sub/main "$@"
-      )
-    else
-      echo -e "\e[1;31m-E-\e[0m Unknown subcommand \e[1m$sub\e[0m\n"
-      callsub $(get_cmdir)/help
-    fi
-  else
-    callsub $(get_cmdir)/help
+    callsub $(get_subdir)/$_sub "$@"
+    return
   fi
+  
+
+  case $1 in
+    -h|--help)
+        callsub $(get_subdir)/help
+        ;;
+  
+    -*) echo -e "\e[1m-W-\e[0m Unknown option '\e[1m$1\e[0m'"
+        ;;
+  
+    *) echo -e "\e[1m-W-\e[0m No position parameter accepted'"
+        ;;
+  esac
 }
 
 

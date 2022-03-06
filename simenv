@@ -18,19 +18,25 @@
 
 shopt -s extglob # globstar
 
+rootdir=$(readlink -e $0 | xargs dirname)
 
-function get_cwd   { echo $cwd; }
-function get_cmdir { echo $(dirname $main); }
-function get_local { echo $(get_cmdir)/.local; }
-function get_run   { echo $(get_cmdir)/.run; }
+function get_rootdir  { echo $rootdir; }
+function get_cwd      { echo $cwd; }
+function get_subdir   { eval "echo $(dirname $main) ${1:+| sed 's/\//\n/g' | head -n $1 | sed ':a; N;  $ {s/\n/\//g}; b a '}"; }
+function get_local    { echo $(get_subdir $1)/.local; }
+function get_run      { echo $(get_subdir $1)/.run; }
 function callsub
 {
-  local main=$1
+  local main=$1/main
   if (( callsub )); then echo -e "\e[1;31m$FUNCNAME\e[0m: $main"; fi
   shift
   
   init_dirs
+  push_subpath $(dirname $main | xargs basename)
+  #echo "get_subdir<$(get_subdir)>" 
+  #echo "get_subpath<$(get_subpath)>" 
   source $main "$@" 
+  pop_subpath
 }
 
 
@@ -80,6 +86,16 @@ function setvar
   fi
 }
 
+# Called inside sed s//.../e
+export -f setvar
+
+function clear_subpath  { truncate -s 0 $(get_rootdir)/.local/subpath; }
+function push_subpath   { echo "$1"  >> $(get_rootdir)/.local/subpath; }
+function pop_subpath    { echo "$(head -n -1 $(get_rootdir)/.local/subpath)" > $(get_rootdir)/.local/subpath; }
+function get_subpath    { eval "cat $(get_rootdir)/.local/subpath ${1:+| head -n $1} | xargs"; }
+
+
+clear_subpath
 
 cwd=$PWD
-callsub $(readlink -e $0 | xargs dirname)/main "$@"
+callsub $rootdir "$@"
