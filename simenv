@@ -61,8 +61,7 @@ function setvar
           ;;
 
       # Collect all positional arguments
-      *)  local setpos[$((setid))]="$1"
-          ((setid++))
+      *)  local setpos[$((setid++))]="$1"
           shift
           ;;
     esac
