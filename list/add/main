@@ -22,7 +22,7 @@
 function main
 {
   if (($# == 0)); then
-    callsub $(get_subdir)/help
+    callsub help
     return
   fi
 
@@ -30,14 +30,14 @@ function main
     local _sub=$1
     shift
     
-    callsub $(get_subdir)/$_sub "$@"
+    callsub $_sub "$@"
     return
   fi
 
   # Collect the options and positional arguments
   opts=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
   if (($? && $? < 4)); then
-    callsub $(get_subdir)/help
+    callsub help
     return
   fi
 
@@ -48,7 +48,7 @@ function main
   while (($#)); do
     case $1 in
       -h|--help)
-          callsub $(get_subdir)/help 
+          callsub help 
           return
           ;;
 
@@ -65,7 +65,26 @@ function main
 
   set -- "${pos[@]}"
 
-  # Insert your code here
+  if (($# < 2)); then
+    echo -e "\e[1;31m-E-\e[0m Need a group name and at least one list name"
+    callsub help
+    return
+  fi
+
+  local group=$1
+  shift
+
+  local group_dir=$(callsub $(get_subdir -1) group dir $group)
+  #check_status
+
+  for n; do
+    if [[ ! -f $group_dir/$n ]]; then
+      truncate -s 0   $group_dir/$n
+    else
+      echo -e "\e[1;31m-E-\e[0m List '\e[1m$n\e[0m' of group '\e[1m$group\e[0m' already exists"
+      set_status 1
+    fi 
+  done
 }
 
 

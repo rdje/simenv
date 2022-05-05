@@ -62,10 +62,10 @@ function main
   set -- "${pos[@]}"
 
 
-  setvar maxid 0
+  set_var maxid 0
   eval num_names=($(grep -o '\S\+' <<<"$@" | sed 's/=/ /' | while read id va; do
       if ((id > $(<maxid))); then
-        setvar maxid $id
+        set_var maxid $id
         
         if [[ $debug ]]; then echo $FUNCNAME: new max is $(<maxid) 1>&2; fi
       fi

@@ -47,7 +47,7 @@ function main
   for p; do
     if [[ $p =~ ^[[:alpha:]][[:alnum:]_]*= ]]; then
       #echo "Named: $p"
-      setvar -a named "$(echo -e "$(grep -o '/.*$' <<<$p)\t$(grep -o '^[^=]\+' <<<$p)")"
+      set_var -a named "$(echo -e "$(grep -o '/.*$' <<<$p)\t$(grep -o '^[^=]\+' <<<$p)")"
 
       newpaths[$((pathid))]="$(grep -o '/.*$' <<<$p)"
     else

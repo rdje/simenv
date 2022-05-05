@@ -21,8 +21,11 @@
 #
 function main
 {
-  cat <<HELP
-usage: $(get_subpath -1) [-h|--help|help]
+  cat <<HELP  | sed -r  's/add/\\e[1m&\\e[0m/
+                         s/group|listname/\\e[4m&\\e[0m/g
+                         s/.*/echo -e "&"/e
+                        '
+usage: $(get_subpath -1) [-h|--help|help] group listname...
 HELP
 }
 

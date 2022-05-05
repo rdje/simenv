@@ -72,9 +72,9 @@ function main
   down=${2:-1}
 
   filtered=$(cat_dirlist | nl -nln | if [[ $id =~ ^[[:alpha:]] ]]; then
-      sed -r '/\s+'$id'\s.*/ {s/.*/setvar  selected "&"/e; d}'
+      sed -r '/\s+'$id'\s.*/ {s/.*/set_var  selected "&"/e; d}'
     else
-      sed -r '/^'$id'\s+.*/  {s/.*/setvar  selected  "&"/e; d}'
+      sed -r '/^'$id'\s+.*/  {s/.*/set_var  selected  "&"/e; d}'
     fi
   )
 

@@ -18,20 +18,55 @@
 
 shopt -s extglob # globstar
 
+root=$(readlink -e $0 | xargs basename)
 rootdir=$(readlink -e $0 | xargs dirname)
 
+# Function: rm
+#
+#   Intercept calls to the built-in rm
+#
+function rm
+{
+  : #echo rm "<$@>"
+}
+
+function set_status   { set_var status $1; }
+function get_status   { if [[ -s status ]]; then head -1 status; else echo 0; fi; }
 function get_rootdir  { echo $rootdir; }
 function get_cwd      { echo $cwd; }
 function get_subdir   { eval "echo $(dirname $main) ${1:+| sed 's/\//\n/g' | head -n $1 | sed ':a; N;  $ {s/\n/\//g}; b a '}"; }
 function get_local    { echo $(get_subdir $1)/.local; }
 function get_run      { echo $(get_subdir $1)/.run; }
+function get_realpath
+{
+  if [[ $1 =~ ^/ ]]; then
+    echo $1
+  else
+    local realpath=$(readlink -e $(get_cwd)/$1)
+
+    if [[ $realpath ]]; then
+      echo $realpath
+    else
+      echo -e "\e[1;31m-E-\e[0m Cannot access '\e[1m$1\e[0m'" 1>&2
+      set_status 1
+    fi
+  fi
+}
+
 function callsub
 {
-  local main=$1/main
+  if [[ $1 =~ / ]]; then
+    local main=$1/main
+  else
+    local main=$(get_subdir)/$1/main
+  fi
+  
   if (( callsub )); then echo -e "\e[1;31m$FUNCNAME\e[0m: $main"; fi
   shift
   
   init_dirs
+  if [[ $(get_rootdir) == $(dirname $main) ]]; then clear_subpath; fi
+
   push_subpath $(dirname $main | xargs basename)
   #echo "get_subdir<$(get_subdir)>" 
   #echo "get_subpath<$(get_subpath)>" 
@@ -46,14 +81,14 @@ function init_dirs
 {
   mkdir -p $(get_local) $(get_run)
   cd $(get_run)
-  #echo rm -f *
+  rm -f *
 }
 
-# Function: setvar
+# Function: set_var
 #
-function setvar
+function set_var
 {
-  local setid
+  local set_id
   while (($#)); do
     case $1 in
       -a) local append=1;
@@ -61,22 +96,29 @@ function setvar
           ;;
 
       # Collect all positional arguments
-      *)  local setpos[$((setid++))]="$1"
+      *)  local set_pos[$((set_id++))]="$1"
           shift
           ;;
     esac
   done
 
-  set -- "${setpos[@]}"
+  set -- "${set_pos[@]}"
 
-  if [[ $debug ]]; then echo "$FUNCNAME: #<$#> pos<${setpos[@]}> append<$append>" 1>&2; fi
+  if ((debug)); then echo "$FUNCNAME: #<$#> pos<${set_pos[@]}> append<$append>" 1>&2; fi
 
   if (($# != 2)); then
-    echo $FUNCNAME requires exactly two arguments: "<name> <value>"
+    echo $FUNCNAME requires exactly two arguments: "<name> <value>" 1>&2
+    set_status 1
     exit 1
   fi
 
-  if [[ $debug ]]; then echo "$FUNCNAME: Setting $1 to '$2'" 1>&2; fi
+  if ((debug)); then
+    if ((append)); then
+      echo "$FUNCNAME: Appending '\e[1m$2\e[0m' to \e[1m$1\e[0m" 1>&2
+    else
+      echo "$FUNCNAME: Setting \e[1m$1\e[0m to '\e[1m$2\e[0m'" 1>&2
+    fi
+  fi
   
   if ((append)); then
     echo "$2" >> $1
@@ -86,15 +128,86 @@ function setvar
 }
 
 # Called inside sed s//.../e
-export -f setvar
+export -f set_var
 
-function clear_subpath  { truncate -s 0 $(get_rootdir)/.local/subpath; }
-function push_subpath   { echo "$1"  >> $(get_rootdir)/.local/subpath; }
-function pop_subpath    { echo "$(head -n -1 $(get_rootdir)/.local/subpath)" > $(get_rootdir)/.local/subpath; }
-function get_subpath    { eval "cat $(get_rootdir)/.local/subpath ${1:+| head -n $1} | xargs"; }
+function set_local_var
+{
+  eval set -- $(getopt -a -oa,u: -lappend,up: -- "$@")
 
+  local posid=0
+  while (($#)); do
+    case $1 in
+      -a|--append)
+          local append=1
+          shift
+          ;;
 
-clear_subpath
+      -u|--up)
+          local up=-$2
+          shift 2
+          ;;
+
+      --) shift
+          ;;
+
+      *)  local pos[$((posid++))]=$1
+          shift
+          ;;
+    esac  
+  done
+
+  set -- "${pos[@]}"
+
+  local name=$1 val=$2
+  
+  set_var ${append:+-a} $(get_local $up)/$name "$val"
+}
+
+function get_local_var
+{ 
+  eval set -- $(getopt -a -ou: -lup: -- "$@")
+
+  local posid=0
+  while (($#)); do
+    case $1 in
+      -u|--up)
+          local up=-$2
+          shift 2
+          ;;
+
+      --) shift
+          ;;
+
+      *)  local pos[$((posid++))]="$1"
+          shift
+          ;; 
+    esac
+  done
+
+  set -- "${pos[@]}"
+
+  if (($# != 1)); then
+    echo -e "\e[1m-E-\e[0m A single variable name is required"
+    set_status 1
+    return
+  fi
+
+  local name=$1
+
+  if [[ -f $(get_local $up)/$name ]]; then
+    cat $(get_local $up)/$name
+  else
+    echo -e "\e[1m-E-\e[0m Unknown variable '\e[1m$name\e[0m' @ $(get_local $up)" 1>&2
+    echo "<unknown>"
+    set_status 1
+  fi
+}
+
+function clear_subpath  { truncate -s 0 $(get_rootdir)/.run/subpath; }
+function push_subpath   { echo "$1"  >> $(get_rootdir)/.run/subpath; }
+function pop_subpath    { echo "$(head -n -1 $(get_rootdir)/.run/subpath)" > $(get_rootdir)/.run/subpath; }
+function get_subpath    { eval "cat $(get_rootdir)/.run/subpath ${1:+| head -n $1} | xargs"; }
+
 
 cwd=$PWD
 callsub $rootdir "$@"

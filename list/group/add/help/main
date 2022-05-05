@@ -21,49 +21,12 @@
 #
 function main
 {
-  if (($# == 0)); then
-    callsub $(get_subdir)/help
-    return
-  fi
-
-  if [[ -d $(get_subdir)/$1 ]]; then
-    local _sub=$1
-    shift
-    
-    callsub $(get_subdir)/$_sub "$@"
-    return
-  fi
-
-  # Collect the options and positional arguments
-  opts=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
-  if (($? && $? < 4)); then
-    callsub $(get_subdir)/help
-    return
-  fi
-
-
-  eval set -- $opts
-
-  local posid
-  while (($#)); do
-    case $1 in
-      -h|--help)
-          callsub $(get_subdir)/help
-          return
-          ;;
-
-  # Insert your code here to add new options' handling
-
-      --) shift
-          ;;
-
-      *)  local pos[$((posid++))]=$1 
-          shift
-          ;;
-    esac
-  done
-
-
+  cat <<HELP  | sed -r  's/add/\\e[1m&\\e[0m/
+                         s/name/\\e4m\\e[0m/
+                         s/.*/echo -e "&"/e
+                         '
+usage: $(get_subpath -1) [-h|--help|help] name...
+HELP
 }
 
 

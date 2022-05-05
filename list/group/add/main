@@ -35,7 +35,7 @@ function main
   fi
 
   # Collect the options and positional arguments
-  opts=$(getopt -a -oh,d:,v -lhelp -- "$@")
+  opts=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
   if (($? && $? < 4)); then
     callsub $(get_subdir)/help
     return
@@ -52,17 +52,9 @@ function main
           return
           ;;
 
-      -d) local directory=$(get_realpath $2)
-          if (( $(get_status) )); then exit $(get_status); fi
-          shift 2
-          ;;
+  # Insert your code here to add new options' handling
 
-      -v) local verbose=1
-          shift
-          ;;
-
-      --) shift
-          ;;
+      --) shift;;
 
       *)  local pos[$((posid++))]=$1 
           shift
@@ -73,51 +65,24 @@ function main
 
   set -- "${pos[@]}"
 
-  if [[ $directory ]]; then
-    if [[ -d $directory ]]; then
-      cd $directory
-    else
-      echo -e "\e[1;31m-E-\e[0m Cannot access directory '\e[1m$directory\e[0m'"
-      exit 1
-    fi
-  else
-    cd $(get_cwd)
-  fi
-
-
-  for p; do
-    mkdir -vp $p/help 
-    add_main $p/help
+  for n; do
+    mkdir -p $(get_local -1)/$n
   done
-}
 
-# Function: add_main
-#
-function add_main
-{
-  local path=$1
+  # if (($# < 2)); then
+  #   callsub $(get_subdir)/help
+  #   return
+  # fi
 
-  #echo "$FUNCNAME: $path"
+  # local name=$1
+  # shift
 
-  if [[ -d $path ]]; then
-    local base=$(basename $path)
+  # for v; do
+  #   set_local_var -a -up 1 $name  $v
+  # done
 
-    if [[ ! -s $path/main ]]; then
-      if [[ $base == help ]]; then
-        cp $(get_subdir)/help.tpl $path/main
-      else
-        cp $(get_subdir)/sub.tpl  $path/main
-      fi
-    fi
+  # get_local_var -up 1  $name
 
-    local dir=$(dirname $path)
-    
-    if [[ $dir != . ]]; then
-      add_main $dir
-    fi
-  else
-    echo -e "\e[1;31m-W-\e[0m Cannot access path '\e[1m$path\e[0m'"
-  fi
 }
 
 

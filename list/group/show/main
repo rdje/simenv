@@ -21,21 +21,23 @@
 #
 function main
 {
-  if (($# == 0)); then
-    callsub $(get_subdir)/help
-    return
-  fi
+  #if (($# == 0)); then
+  #  callsub $(get_subdir)/help
+  #  return
+  #fi
 
-  if [[ -d $(get_subdir)/$1 ]]; then
-    local _sub=$1
-    shift
-    
-    callsub $(get_subdir)/$_sub "$@"
-    return
+  if (($#)); then
+    if [[ -d $(get_subdir)/$1 ]]; then
+      local _sub=$1
+      shift
+      
+      callsub $(get_subdir)/$_sub "$@"
+      return
+    fi
   fi
 
   # Collect the options and positional arguments
-  opts=$(getopt -a -oh,d:,v -lhelp -- "$@")
+  opts=$(getopt -a -n "$(get_subpath)" -oh,n,s -lhelp -- "$@")
   if (($? && $? < 4)); then
     callsub $(get_subdir)/help
     return
@@ -52,17 +54,17 @@ function main
           return
           ;;
 
-      -d) local directory=$(get_realpath $2)
-          if (( $(get_status) )); then exit $(get_status); fi
-          shift 2
-          ;;
-
-      -v) local verbose=1
+      -n) local nonum=1
           shift
           ;;
 
-      --) shift
+      -s) local serial=1
+          shift
           ;;
+
+  # Insert your code here to add new options' handling
+
+      --) shift;;
 
       *)  local pos[$((posid++))]=$1 
           shift
@@ -71,53 +73,26 @@ function main
   done
 
 
-  set -- "${pos[@]}"
 
-  if [[ $directory ]]; then
-    if [[ -d $directory ]]; then
-      cd $directory
-    else
-      echo -e "\e[1;31m-E-\e[0m Cannot access directory '\e[1m$directory\e[0m'"
-      exit 1
-    fi
-  else
-    cd $(get_cwd)
-  fi
+  eval find $(get_local -1) -maxdepth 1 -mindepth 1 -type d  -printf "\"%A@\t%f\n\"" '|' cut -f2  \
+            $(if ((!nonum)); then echo '| nl -nln'; fi)                                           \
+            $(if ((nonum && serial)); then echo '| xargs'; fi)
 
+  #set - "${pos[@]}"
 
-  for p; do
-    mkdir -vp $p/help 
-    add_main $p/help
-  done
-}
+  #if (($# != 1)); then
+  #  echo -e "\e[1;31m-E-\e[0m Missing list's name"
+  #  callsub $(get_subdir)/help
+  #  return
+  #fi
 
-# Function: add_main
-#
-function add_main
-{
-  local path=$1
+  #local name=$1
 
-  #echo "$FUNCNAME: $path"
-
-  if [[ -d $path ]]; then
-    local base=$(basename $path)
-
-    if [[ ! -s $path/main ]]; then
-      if [[ $base == help ]]; then
-        cp $(get_subdir)/help.tpl $path/main
-      else
-        cp $(get_subdir)/sub.tpl  $path/main
-      fi
-    fi
-
-    local dir=$(dirname $path)
-    
-    if [[ $dir != . ]]; then
-      add_main $dir
-    fi
-  else
-    echo -e "\e[1;31m-W-\e[0m Cannot access path '\e[1m$path\e[0m'"
-  fi
+  #if [[ -f $(get_local -1)/$name ]]; then
+  #  cat $(get_local -1)/$name
+  #else
+  #  echo -e "\e[1;31m-E-\e[0m Unknown list \e[1m$name\e[0m"
+  #fi
 }
 
 
