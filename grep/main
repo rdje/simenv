@@ -42,8 +42,7 @@ function main
 
   if [[ $debug ]]; then echo; fi
 
-  # Collect the options and positional arguments
-  opts=$(getopt -n simenv -a -o ihnRIsx:d: -l xf:,xd:,ad,add-directory: -- "$@")
+  local opts=$(getopt -n simenv -a -o ihnRIsx:d: -l xf:,xd:,ad,add-directory:,dry-run -- "$@")
   if (($? && $? < 4)); then
     callsub $(get_subdir)/help
     return
@@ -62,27 +61,29 @@ function main
   local k=0
   while (($#))
   do
-    if [[ $debug ]]; then echo -e "\e[31mk: $k  <$1>\e[0m"; fi
+    if [[ $debug ]]; then printf "\e[31mk: $k  <$1>\e[0m\n"; fi
     case $1 in
       -x)
-        for ext in $(echo $2 | sed 's/,/\n/g' | sed 's/^\.//')
-        do
-          if [[ $debug ]]; then echo "ext<$ext>"; fi
+	if [[ $2 =~ ^\. ]]; then
+	  add_glob ext $1 ${2:1}
 
-          extglobs[$((extglob_id))]=$ext
-          ((extglob_id++))
-        done
+	elif [[ $2 =~ ^/ ]]; then
+	  add_glob dir $1 ${2:1}
+
+	else # assuming a file globs
+	  add_glob file $1 $2
+	fi
 
         shift 2
         ;;
 
       --xf)
-        exclude_file $1 $2
+        add_glob file $1 $2
         shift 2
         ;;
 
       --xd)
-        exclude_dir $1 $2
+        add_glob dir $1 $2
         shift 2
         ;;
 
@@ -101,19 +102,19 @@ function main
       -h)
         no_filename=1;
         if [[ $debug ]]; then echo "no_filename<1>"; fi
-        shift;
+        shift
         ;;
 
       -R)
         symlink_recurse=1;
         if [[ $debug ]]; then echo "symlink_recurse<1>"; fi
-        shift;
+        shift
         ;;
 
       -n)
         linenum=1;
         if [[ $debug ]]; then echo "linenum<1>"; fi
-        shift;
+        shift
         ;;
 
       -s)
@@ -131,8 +132,13 @@ function main
         ;;
 
       -d)
-        sd=$2;
-        shift 2;
+        sd=$2
+        shift 2
+        ;;
+
+      --dry-run)
+        dry_run=1
+        shift
         ;;
 
       --) end_of_options=1
@@ -140,12 +146,12 @@ function main
           shift
           ;;
 
-      -*) echo -e "\e[1;31m-E-\e[0m Unknown option '\e[1;31m$1\e[0m'"
+      -*) printf "\e[1;31m-E-\e[0m Unknown option '\e[1;31m$1\e[0m'"
           callsub $(get_subdir)/help
           return
           ;;
 
-      *)  params[$((posid))]=$1
+      *)  param[$((posid))]=$1
           ((posid++))
           if [[ $debug ]]; then echo "positional parameter: <$1>"; fi
           shift
@@ -156,23 +162,25 @@ function main
   done
 
   if (($(has_empty_dirlist) == 0)); then
-    eval grep -E                        \
-              --color=always            \
-              ${ignore_case:+-i}        \
-              ${ignore_binary:+-I}      \
-              ${no_filename:+-h}        \
-              ${no_messages:+-s}        \
-              ${linenum:+-n}            \
-              $(if ((symlink_recurse)); then echo -R; else echo -r; fi)         \
-              $(for e in "${extglobs[@]}";  do echo "--exclude=*.'$e'"; done)   \
-              $(for f in "${fileglobs[@]}"; do echo "--exclude='$f'"; done)     \
-              $(for d in "${dirglobs[@]}";  do echo "--exclude-dir='$d'"; done) \
-              $(for p in "${params[@]}";    do echo "-e '$p'"; done)            \
-              $(cat_dirlist $sd)
+    $(if ((dry_run)); then echo echo; else echo eval; fi) \
+      grep -E                   \
+      --color=always            \
+      ${ignore_case:+-i}        \
+      ${ignore_binary:+-I}      \
+      ${no_filename:+-h}        \
+      ${no_messages:+-s}        \
+      ${linenum:+-n}            \
+      $(if ((symlink_recurse)); then  echo -R; else echo -r; fi)	  \
+      $(for e in "${extglob[@]}";  do echo --exclude=\""*.$e"\";   done)  \
+      $(for f in "${fileglob[@]}"; do echo --exclude=\""$f"\";     done)  \
+      $(for d in "${dirglob[@]}";  do echo --exclude-dir=\""$d"\"; done)  \
+      $(for p in "${param[@]}";    do echo "-e \"$p\""; done)		  \
+      $(cat_dirlist ${sd:+--entry $sd} --quote --just-path)
+
   else
-    echo -e "\e[1;31m-E-\e[0m No registered directory\n"
+    printf "\e[1;31m-E-\e[0m No registered directory\n"
     echo Try
-    callsub $(get_subdir)/add
+    callsub add help
 
   fi
 
@@ -180,86 +188,95 @@ function main
 
 
 
-
-# Function: exclude_file
+# Function: add_glob
 #
-function exclude_file
+function add_glob
 {
-  _xfid=$((_xfid+1))
+  local	type=$1 # p.e, file, dir, ext, ...
+  local opt=$2
+  local value=$3
 
-  local opt=$1
-  local value=$2
+  local id=__${FUNCNAME}_${type}__optid
+
+  eval $id=$((${!id}+1))
+  #echo "$id=<${!id}>"
 
   if [[ $value =~ ^[^,/]+(,[^,/]+)*$ ]]; then
-    for file in $(echo $value | sed 's/,/ /g')
+    for e in $(echo $value | sed -r 's/^|$/"/g; s/,/" "/g')
     do
-      if [[ $debug ]]; then echo "file<$file>"; fi
+      #echo "$type<$e>"
 
-      fileglobs[$((fileglob_id))]=$file
-      ((fileglob_id++))
+      eval ${type}glob[$((${type}id++))]=$e
     done
   else
-    case $_xfid in
-      1) suffix=st;;
-      2) suffix=nd;;
-      3) suffix=rd;;
-      *) suffix=th;;
+    case ${!id} in
+      1) suf=st;;
+      2) suf=nd;;
+      3) suf=rd;;
+      *) suf=th;;
     esac
 
-    echo -e "\e[1;31m-E-\e[0m Syntax error with value '\e[1m$value\e[0m' of $_xfid$suffix '\e[1m$opt\e[0m' option"
-    echo -e "\e[1m-I-\e[0m Probably due to the presence of '\e[1m/\e[0m's"
+    printf "\e[1;31m-E-\e[0m Syntax error with value '\e[1m$value\e[0m' of ${!id}$suf '\e[1m$opt\e[0m' option\n"
+    printf "\e[1m-I-\e[0m Probably due to the presence of '\e[1m/\e[0m's\n"
     exit 2
   fi
-} # exclude_file
+} # add_glob
 
 
-# Function: exclude_dir
-#
-function exclude_dir
-{
-  _xdid=$((_xdid+1))
-
-  local opt=$1
-  local value=$2
-
-  if [[ $value =~ ^[^,/]+(,[^,/]+)*$ ]]; then
-    for dir in $(echo $value | sed 's/,/ /g')
-    do
-      if [[ $debug ]]; then echo "dir<$dir>"; fi
-
-      dirglobs[$((dirglob_id))]=$dir
-      ((dirglob_id++))
-    done
-  else
-    case $_xdid in
-      1) suffix=st;;
-      2) suffix=nd;;
-      3) suffix=rd;;
-      *) suffix=th;;
-    esac
-
-    echo -e "\e[1;31m-E-\e[0m Syntax error with value '\e[1m$value\e[0m' of $_xdid$suffix '\e[1m$opt\e[0m' option"
-    echo -e "\e[1m-I-\e[0m Probably due to the presence of '\e[1m/\e[0m's"
-    exit 2
-  fi
-} # exclude_dir
-
-
-# Function: cat_dirlist
+# Function: cat_dirlist [--quote|-q] [-entry|-e id] [--just-path|-p]
 #
 function cat_dirlist
 {
-  if [[ -s $(get_dirlist) ]]; then
-    local id=$1
+  local quote pos posid id path
 
-    cat $(get_dirlist) | if [[ -z $id ]]; then
-      cat
-    else
+  while (($#)); do
+    case $1 in
+      --quote|-q)
+	quote=1
+	shift
+	;;
+
+      --entry|-e)
+	id=$2
+	shift 2
+	;;
+
+      --just-path|-p)
+	path=1
+	shift
+	;;
+
+      -*) 
+	printf "\e[1;31m-E-\e[0m Unsupported option '\e[1m$1\e[0m'"
+	exit 1
+	;;
+
+      *)  pos[$((posid++))]=$1
+	  shift
+	  ;;
+    esac
+  done
+
+  set -- "${pos[@]}"
+
+
+  if [[ -s $(get_dirlist) ]]; then
+    cat $(get_dirlist) | if [[ $id ]]; then
       if [[ $id =~ ^[[:alpha:]] ]]; then
         sed -rn '/^'$id'\>/p' 
       else
         nl -nln | sed -rn '/^'$id'\s/p'
-      fi | sed -r 's#.*\s(/.*)$#\1#'
+      fi | sed -r 's#.*\s(/.+)$#"\1"#'
+    else
+      if ((path)); then
+	if ((quote)); then
+      	  sed -r 's#.*\s(/.+)$#"\1"#'
+      	else
+      	  sed -r 's#.*\s(/.+)$#\1#'
+      	fi
+      else
+	cat
+      fi
     fi
   fi
 }

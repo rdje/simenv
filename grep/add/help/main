@@ -23,7 +23,7 @@ function main
 {
   cat <<HELP  | sed -r 's/name|path/\\e[4m&\\e[0m/g
                         s/(\|)(help)/\1\\e[1m\2\\e[0m/
-                        s/.*/echo -e "&"/e
+                        s/.*/printf "&"/e
                        '
 usage: $(get_subpath -1) [-h|--help|help] [name=]path ...
 HELP

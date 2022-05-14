@@ -24,38 +24,45 @@ function main
   if [[ -z $1 ]]; then
   cat <<USAGE | sed -r 's/grep|--?[[:alnum:]-]+|-x.|[][]/\\e[1m&\\e[0m/g
                         s/^(\s*)(list|add|rm|\<name\>|up|down)/\1\\e[1m\2\\e[0m/
-                        s/(ext|file|dir)glob|eregex|sub|options|cmd|commands|parameters|path/\\e[4m&\\e[0m/g
+                        s/(ext|file|dir)glob|regex|sub|options|cmd|commands|args|path/\\e[4m&\\e[0m/g
                         s/(name|N|U|D)(=|\|)/\\e[4m\1\\e[0m\2/g
                         s/(=)(name)/\1\\e[4m\2\\e[0m/
                         s/(\|)(N)/\1\\e[4m\2\\e[0m/
-                        s/.*/echo -e "&"/e'
-
-usage: simenv grep [options] eregex | subcmd [parameters]
+                        s/.*/printf "&"/e'
+usage: simenv grep [options] regex...
+       simenv grep subcmd [args]
   
   options:
     
-    -x  extglob{,extglob}
-        Ignore files ending with the comma separated extension glob patterns
+    -x .extglob{,extglob}
+	Ignore files ending with the comma separated extension glob patterns.
+	The first character following the option and attached to the ensuing glob shall be a dot ('.')
 
-    -xf fileglob{,fileglob}
-        Ignore files matching the comma separated file glob patterns
+    -x	 fileglob{,fileglob}
+    --xf fileglob{,fileglob}
+	Ignore files matching the comma separated file glob patterns
+	In the case of the -x variant, the first character of the first glob may be neither a dot ('.') nor a forward slash ('/')
 
-    -xd dirglob{,dirglob}
-        Ignore directories matching the comma separated glob patterns
+    -x  /dirglob{,dirglob}
+    --xd dirglob{,dirglob}
+	Ignore directories matching the comma separated glob patterns
+	In the case of the -x variant, the character following the option and attached to the ensuing glob shall be a forward slash  ('/')
 
-    -d  name|N
-        Only search the directory whose number or logical name is provided
+    -d name|N
+	Search the directory whose number or logical name is provided
 
     -h
     -n
     -R
     -i
-        Ignore case
+	Ignore case
     -I  
-        Ignore binary files
+	Ignore binary files
     -s
-        Suppress error messages about nonexistent or unreadable files.
+	Suppress error messages about nonexistent or unreadable files.
 
+    --dry-run
+	Print the final GNU grep command line and exit
 
   subcommands:
     
@@ -65,7 +72,6 @@ usage: simenv grep [options] eregex | subcmd [parameters]
     name N=name ...
     up   name|N [U=1]
     down name|N [D=1]
-
 USAGE
   else
     cat <<SHORT | sed -r 's/(-\s+)(grep)/\1\\e[1m\2\\e[0m/g'  \
