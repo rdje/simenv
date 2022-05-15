@@ -22,38 +22,35 @@
 function main
 {
   if (($# == 0)); then
-    callsub $(get_subdir)/help
+    callsub help
     return 
   fi
 
   if [[ -d $(get_subdir)/$1 ]]; then
-    local _sub=$1
-    shift
-    
-    callsub $(get_subdir)/$_sub "$@"
+    callsub "$@"
     return
   fi
 
   opt=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
   if (( $? && $? < 4)); then
-    callsub $(get_subdir)/help
+    callsub help
     exit 1
   fi
 
   eval set -- $opt
 
-  local posid
+  local pos posid
   while (($#)); do
     case $1 in
       -h|--help)
-          callsub $(get_subdir)/help 
+          callsub help 
           return
           ;;
 
       --) shift
           ;;
 
-      *)  local pos[$((posid++))]=$1 
+      *)  pos[$((posid++))]=$1 
           shift
           ;;
     esac
@@ -63,8 +60,8 @@ function main
   set -- "${pos[@]}"
 
   if (($# > 2)); then
-    echo -e "\e[1;31m-E-\e[0m Too many positional arguments (max=2)"
-    callsub $(get_subdir)/help
+    printf "\e[1;31m-E-\e[0m Too many positional arguments (max=2)\n"
+    callsub help
     return 
   fi
 
@@ -79,7 +76,7 @@ function main
   )
 
   if [[ ! -f selected ]]; then
-    echo -e "\e[1;31m-W-\e[0m No match"
+    printf "\e[1;31m-W-\e[0m No match\n"
     return
   fi
 

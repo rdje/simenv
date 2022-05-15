@@ -22,33 +22,30 @@
 function main
 {
   if [[ $1 ]] && [[ -d $(get_subdir)/$1 ]]; then
-    local _sub=$1
-    shift
-    
-    callsub $(get_subdir)/$_sub "$@"
+    callsub "$@"
     return
   fi
 
   opt=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
   if (( $? && $? < 4)); then
-    callsub $(get_subdir)/help
+    callsub help
     exit 1
   fi
 
   eval set -- $opt
 
-  local posid
+  local pos posid
   while (($#)); do
     case $1 in
       -h|--help)
-          callsub $(get_subdir)/help 
+          callsub help 
           return
           ;;
 
       --) shift
           ;;
 
-      *)  local pos[$((posid++))]=$1 
+      *)  pos[$((posid++))]=$1 
           shift
           ;;
     esac

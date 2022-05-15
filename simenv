@@ -86,6 +86,9 @@ function init_dirs
 
 # Function: set_var
 #
+# Could have been named set_run_var
+# as variable a created in .run directories
+#
 function set_var
 {
   local set_id
@@ -130,6 +133,10 @@ function set_var
 # Called inside sed s//.../e
 export -f set_var
 
+# Function: set_local_var
+#
+# Variables are created in .local directories
+#
 function set_local_var
 {
   eval set -- $(getopt -a -oa,u: -lappend,up: -- "$@")
@@ -163,11 +170,15 @@ function set_local_var
   set_var ${append:+-a} $(get_local $up)/$name "$val"
 }
 
+# Function: get_local_var
+#
+# Variables are retrieved from .local directories
+#
 function get_local_var
 { 
   eval set -- $(getopt -a -ou: -lup: -- "$@")
 
-  local posid=0
+  local posid
   while (($#)); do
     case $1 in
       -u|--up)

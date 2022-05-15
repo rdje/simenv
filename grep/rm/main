@@ -22,37 +22,34 @@
 function main
 {
   if (($# == 0)); then
-    callsub $(get_subdir)/help
+    callsub help
     return
   fi
 
   if [[ -d $(get_subdir)/$1 ]]; then
-    local _sub=$1
-    shift
-    
-    callsub $(get_subdir)/$_sub "$@"
+    callsub "$@"
     return
   fi
 
   opt=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
   if (( $? && $? < 4)); then
-    callsub $(get_subdir)/help
+    callsub help
     exit 1
   fi
 
   eval set -- $opt
 
-  local posid
+  local pos posid
   while (($#)); do
     case $1 in
       -h|--help)
-          callsub $(get_subdir)/help 
+          callsub help 
           return
           ;;
 
       --) shift;;
 
-      *)  local pos[$((posid++))]=$1 
+      *)  pos[$((posid++))]=$1 
           shift
           ;;
     esac
@@ -97,7 +94,7 @@ function main
     a_wc=$(echo "$removed" | wc -l | cut -d' ' -f1)
 
     if ((b_wc == a_wc)); then
-      echo -e "\e[1m-W-\e[0m No match found for '\e[1m$id\e[0m'"
+      printf "\e[1m-W-\e[0m No match found for '\e[1m$id\e[0m'\n"
       return
     fi
 

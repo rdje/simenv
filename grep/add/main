@@ -22,21 +22,19 @@
 function main
 {
   if (($# == 0)); then
-    echo -e "\e[1;31m-E-\e[0m No directory provided."
-    callsub $(get_subdir)/help
+    printf "\e[1;31m-E-\e[0m No directory provided.\n"
+    callsub help
     return
   fi
 
   if [[ -d $(get_subdir)/$1 ]]; then
-    local _sub=$1
-    shift
-  
-    callsub $(get_subdir)/$_sub "$@"
+    callsub "$@"
     return
   fi
 
 
-  echo "<$#> <$*> cwd<$(get_cwd)> pwd<`pwd`>"
+  #echo "BEGIN: named<$(<named)>" 1>&2
+  #echo "<$#> <$*> cwd<$(get_cwd)> pwd<`pwd`>"
   touch $(get_dirlist)
   touch named
 
@@ -47,7 +45,7 @@ function main
   for p; do
     if [[ $p =~ ^[[:alpha:]][[:alnum:]_]*= ]]; then
       #echo "Named: $p"
-      set_var -a named "$(echo -e "$(grep -o '/.*$' <<<$p)\t$(grep -o '^[^=]\+' <<<$p)")"
+      set_var -a named "$(printf "$(grep -o '/.*$' <<<$p)\t$(grep -o '^[^=]\+' <<<$p)\n")"
 
       newpaths[$((pathid))]="$(grep -o '/.*$' <<<$p)"
     else
@@ -71,15 +69,16 @@ function main
   local cato=$(cat $(get_dirlist) <(readlink -e "$@") | sed -r '\#^[[:alpha:]]# ! s#.*/([^/]+)#\L\1\E &#' | while read name file; do
       name=$(grep -o '^[[:alnum:]_]\+' <<<$name)
 
-      #echo "file: $name $file"
+      #echo "file: $name $file" 1>&2
 
       local Name
       match=$(grep "^$file" named)
       if [[ $match ]]; then
         Name=$(grep -o '[[:alnum:]_]\+$' <<<$match)
+	#echo "match=<$match>" "named<$(<named)>"  1>&2
       fi
 
-      #echo "file:---> oldname<$name>   newname<$Name>   <$file>"
+      #echo "file:---> oldname<$name>   newname<$Name>   <$file>" 1>&2
       if [[ $Name ]]; then
         name=$Name
       fi
@@ -89,6 +88,7 @@ function main
   )
 
   echo "$cato" > $(get_dirlist)
+  #echo "$cato"
 
   local a_linec=$(wc -l $(get_dirlist) | cut -d' ' -f1)
 
@@ -97,13 +97,13 @@ function main
     for d in "$@"
     do
       if [[ -z $(readlink -e $d) ]]; then
-        echo -e "\e[1;31m-W-\e[0m Directory \e[1m$d\e[0m does not exist, ignored."
+        printf "\e[1;31m-W-\e[0m Directory \e[1m$d\e[0m does not exist, ignored.\n"
         ((ignored++))
       fi
     done
 
     if ((!ignored)); then
-      echo -e "\e[1;31m-W-\e[0m No new directory added."
+      printf "\e[1;31m-W-\e[0m No new directory added.\n"
     fi
   fi
 }

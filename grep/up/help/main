@@ -21,7 +21,7 @@
 #
 function main
 {
-  cat <<HELP | sed -r 's/-E-/\\e[1;31m&\\e[0m/; s/up/\\e[1m&\\e[0m/; s/N|name|U/\\e[4m&\\e[0m/g' | sed 's/.*/echo -e "&"/e'
+  cat <<HELP | sed -r 's/-E-/\\e[1;31m&\\e[0m/; s/up/\\e[1m&\\e[0m/; s/N|name|U/\\e[4m&\\e[0m/g' | sed 's/.*/printf "&"/e'
 usage: $(get_subpath -1) [-h|--help] N|name [U=1]
 HELP
 }

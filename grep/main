@@ -22,32 +22,30 @@
 function main
 {
   if (($# == 0)); then
-    callsub $(get_subdir)/help
+    callsub help
     return
   fi
 
   if [[ -d $(get_subdir)/$1 ]]; then
-    local _sub=$1
-    shift
-    
-    callsub $(get_subdir)/$_sub "$@"
+    callsub "$@"
     return
   fi
 
            
-  for v in "$@"
+  for v
   do
    if [[ $debug ]]; then echo "initial: <$v>"; fi
   done
 
   if [[ $debug ]]; then echo; fi
 
-  local opts=$(getopt -n simenv -a -o ihnRIsx:d: -l xf:,xd:,ad,add-directory:,dry-run -- "$@")
+  local opts=$(getopt -n simenv -a -o ihnRIsx:d: -l xf:,xd:,ad,add-directory:,dry-run,nc,nocolor -- "$@")
   if (($? && $? < 4)); then
-    callsub $(get_subdir)/help
+    callsub help
     return
   fi
 
+  local color=always dry_run
 
   eval set -- $opts
 
@@ -141,18 +139,22 @@ function main
         shift
         ;;
 
+      --nc|--nocolor)
+        color=never
+        shift
+        ;;
+
       --) end_of_options=1
           if [[ $debug ]]; then echo "########## End Of Options ##########"; fi
           shift
           ;;
 
       -*) printf "\e[1;31m-E-\e[0m Unknown option '\e[1;31m$1\e[0m'"
-          callsub $(get_subdir)/help
+          callsub help
           return
           ;;
 
-      *)  param[$((posid))]=$1
-          ((posid++))
+      *)  param[$((posid++))]=$1
           if [[ $debug ]]; then echo "positional parameter: <$1>"; fi
           shift
           ;;
@@ -164,7 +166,7 @@ function main
   if (($(has_empty_dirlist) == 0)); then
     $(if ((dry_run)); then echo echo; else echo eval; fi) \
       grep -E                   \
-      --color=always            \
+      --color=$color            \
       ${ignore_case:+-i}        \
       ${ignore_binary:+-I}      \
       ${no_filename:+-h}        \

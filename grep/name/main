@@ -22,37 +22,34 @@
 function main
 {
   if (($# == 0)); then
-    callsub $(get_subdir)/help
+    callsub help
     return 
   fi
 
   if [[ -d $(get_subdir)/$1 ]]; then
-    local _sub=$1
-    shift
-    
-    callsub $(get_subdir)/$_sub "$@"
+    callsub "$@"
     return
   fi
 
   opt=$(getopt -a -n "$(get_subpath)" -oh -lhelp -- "$@")
   if (( $? && $? < 4)); then
-    callsub $(get_subdir)/help
+    callsub help
     exit 1
   fi
 
   eval set -- $opt
 
-  local posid
+  local pos posid
   while (($#)); do
     case $1 in
       -h|--help)
-          callsub $(get_subdir)/help 
+          callsub help 
           return
           ;;
 
       --) shift;;
 
-      *)  local pos[$((posid++))]=$1 
+      *)  pos[$((posid++))]=$1 
           shift
           ;;
     esac
@@ -81,14 +78,14 @@ function main
 
     if [[ ${num_names[$linenum]} ]]; then
       #if [[ $name_path =~ ^/ ]]; then
-      #  echo -e "\tNo name attached yet, \e[1m${num_names[$linenum]}\e[0m will be applied" 
+      #  printf "\tNo name attached yet, \e[1m${num_names[$linenum]}\e[0m will be applied" 
       #else
-      #  echo -e "\tCurrent name will be replaced" 
+      #  printf "\tCurrent name will be replaced" 
       #fi
       
-      printf "%-8s%s\n" "${num_names[$linenum]}" $path
+      printf "%-8s%s\n\n" "${num_names[$linenum]}" $path
     else
-      printf "%-8s%s\n" "$name" $path
+      printf "%-8s%s\n\n" "$name" $path
     fi 
   done`
 
