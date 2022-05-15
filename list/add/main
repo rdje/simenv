@@ -27,10 +27,7 @@ function main
   fi
 
   if [[ -d $(get_subdir)/$1 ]]; then
-    local _sub=$1
-    shift
-    
-    callsub $_sub "$@"
+    callsub "$@"
     return
   fi
 
@@ -44,7 +41,7 @@ function main
 
   eval set -- $opts
 
-  local posid
+  local pos posid
   while (($#)); do
     case $1 in
       -h|--help)
@@ -54,9 +51,10 @@ function main
 
   # Insert your code here to add new options' handling
 
-      --) shift;;
+      --) shift
+	  ;;
 
-      *)  local pos[$((posid++))]=$1 
+      *)  pos[$((posid++))]=$1 
           shift
           ;;
     esac

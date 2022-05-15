@@ -22,15 +22,12 @@
 function main
 {
   if (($# == 0)); then
-    callsub $(get_subdir)/help
+    callsub help
     return
   fi
 
   if [[ -d $(get_subdir)/$1 ]]; then
-    local _sub=$1
-    shift
-    
-    callsub $(get_subdir)/$_sub "$@"
+    callsub "$@"
     return
   fi
 
@@ -38,7 +35,7 @@ function main
   opt=$(getopt -qa -oh -lhelp,depth: -- "$@")
   if (( $? && $? < 4)); then
     echo -e "\e[1;31m-E-\e[0m Unrecognised option '\e[1m$1\e[0m'" 
-    callsub $(get_subdir)/help
+    callsub help
     exit 1
   fi
 
@@ -47,7 +44,7 @@ function main
   while (($#)); do
     case $1 in
       -h|--help)
-          callsub $(get_subdir)/help
+          callsub help
           return
           ;;
 
